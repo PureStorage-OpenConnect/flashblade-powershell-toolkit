@@ -1,0 +1,8 @@
+[
+	{
+		"FlashBlade": 	"xxx.xxx.xxx.x", 
+		"APIToken": 	"xxx",
+		"APIvers": 	1.8,
+		"CertificateCheck": "-SkipCertificateCheck"
+	}
+]
