@@ -33,7 +33,7 @@ Cmdlets:
  If you want to override these, you can specify -FlashBlade and -APIToken when running a cmdlet. APIVers is defaulted below, but can also be over-ridden if you comment that variable out. 
 
  To Do:
- FIX  Get-NOPfbLogS
+ FIX  Get-NOPfbLogs
  Update Help and add more examples.
  Testing, more testing.
 
@@ -167,10 +167,11 @@ function Get-InternalHTTPError ()
                         $myMessage = ($_.Exception.Message).ToString().Trim();
                         Write-Output $myMessage;
                 }
+                write-host $_.ErrorDetails.Message
                 break;
 }
 
-function Get_InternalCatchallError () 
+function Get-InternalCatchallError () 
 {                 
         $myMessage = ($_.Exception.Message).ToString().Trim();
         Write-Output $myMessage;
@@ -6693,6 +6694,7 @@ Param(
   [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $FlashBlade,
   [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $ApiToken,
   [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $SkipCertificateCheck =$null,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $FileName =$null,
   [Parameter(Mandatory=$TRUE)][ValidateNotNullOrEmpty()][Int64] $EndTime = $null,
   [Parameter(Mandatory=$TRUE)][ValidateNotNullOrEmpty()][Int64] $StartTime = $null
 )
@@ -6729,19 +6731,23 @@ if ($SkipCertificateCheck -eq 'true') {
                         Method  = 'GET' 
                         Headers = @{ 'x-auth-token' = $(Get-InternalPfbAuthToken)} 
                         Uri = $request.Uri
-                        Body = (ConvertTo-JSON $body) 
-                        ContentType = 'application/json'       
+                        #Body = (ConvertTo-JSON $body) 
+                        ContentType = 'application/octet-stream'
+                        OutFile = $FileName     
                 } 
                 
                         if ($DEBUG) { write-host $request.Uri };
                         if ($DEBUG) { write-host @params };
                 
                         try {
-                                $obj = Invoke-RestMethod @params
-                                $Items = $obj.items;
+                                $obj = Invoke-RestMethod @params -Verbose
+                                #$Items = $obj.items;
                                 Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand);
                                 Write-Host '---------------------------------------------------';
-                                return $Items;
+                                #Set-Content -Path $FileName -Value $obj.Content -AsByteStream
+                                #return $obj;
+                                #return $Items;
+
                         }
                         catch [System.Net.Http.HttpRequestException] {
                                 $Request = $_.Exception
