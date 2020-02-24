@@ -49,6 +49,32 @@ $DEBUG = 0;
 $APIVers = 1.8;
 $JSON_FILE = 'FlashBlade.JSON';
  
+function Get-PfbDateSinceEpoc() 
+{
+<#
+.SYNOPSIS
+	Returns the date since EPOC from the time inputted.
+.DESCRIPTION
+    Helper function
+    Returns the date since EPOC from the time inputted.
+.EXAMPLE
+    get-date (get-date -Date "17/2/2020 19:00:00").ToUniversalTime() -UFormat %s
+.OUTPUTS
+    EpocTime in seconds since input e.g. 1581937200
+        
+.NOTES
+	Internal only.
+#>
+[CmdletBinding()]
+Param(
+[Parameter(Mandatory=$TRUE)][ValidateNotNullOrEmpty()][string] $MyDate = $null
+);
+    $Epocseconds = get-date (get-date -Date $MyDate).ToUniversalTime() -UFormat %s;
+    $Epocmilliseconds = [timespan]::FromSeconds($Epocseconds).TotalMilliseconds;
+    return @($Epocmilliseconds)
+    
+}
+
 function Get-InternalPfbJson() 
 {
 <#
@@ -65,13 +91,14 @@ function Get-InternalPfbJson()
 .NOTES
 	Internal only.
 #>
+
         $json = Get-Content -Raw ($JSON_FILE) | out-string | ConvertFrom-Json;
         #$json = Get-Content -Raw FlashBlade.JSON | out-string | ConvertFrom-Json;
 	$json | ForEach-Object { 
 			$FlashBlade = $_.FlashBlade
 			$ApiToken = $_.APIToken
-                        $ApiVers = $_.APIvers
-                        $SkipCertificateCheck = $_.SkipCertificateCheck
+            $ApiVers = $_.APIvers
+            $SkipCertificateCheck = $_.SkipCertificateCheck
 		}
 	if ($DEBUG) { write-host "Get-InternalPfbJson IP = $FlashBlade " } ; 
 	
@@ -238,8 +265,8 @@ if ($SkipCertificateCheck -eq 'true') {
                 try {
                         $obj = Invoke-RestMethod @params
                         $Items = $obj.versions;
-                        Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand);
-                        Write-Host '---------------------------------------------------';
+                        if ($DEBUG) {Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand)};
+                        if ($DEBUG) {Write-Host '---------------------------------------------------'};
                         return $Items;
                 }
                 catch [System.Net.Http.HttpRequestException] {
@@ -375,8 +402,8 @@ if ($SkipCertificateCheck -eq 'true') {
                 try {
                         $obj = Invoke-RestMethod @params
                         $Items = $obj.items;
-                        Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand);
-                        Write-Host '---------------------------------------------------';
+                        if ($DEBUG) {Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand)};
+                        if ($DEBUG) {Write-Host '---------------------------------------------------'};
                         return $Items;
                 }
                 catch [System.Net.Http.HttpRequestException] {
@@ -493,8 +520,8 @@ if ($InputFile) {
                 try {
                         $obj = Invoke-RestMethod @params
                         $Items = $obj.items;
-                        Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand);
-                        Write-Host '---------------------------------------------------';
+                        if ($DEBUG) {Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand)};
+                        if ($DEBUG) {Write-Host '---------------------------------------------------'};
                         return $Items;
                 }
                 catch [System.Net.Http.HttpRequestException] {
@@ -628,8 +655,8 @@ if ($Test) {
                 try {
                         $obj = Invoke-RestMethod @params
                         $Items = $obj.items;
-                        Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand);
-                        Write-Host '---------------------------------------------------';
+                        if ($DEBUG) {Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand)};
+                        if ($DEBUG) {Write-Host '---------------------------------------------------'};
                         return $Items;
                 }
                 catch [System.Net.Http.HttpRequestException] {
@@ -719,8 +746,8 @@ if ($SkipCertificateCheck -eq 'true') {
                 try {
                         $obj = Invoke-RestMethod @params
                         $Items = $obj.items;
-                        Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand);
-                        Write-Host '---------------------------------------------------';
+                        if ($DEBUG) {Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand)};
+                        if ($DEBUG) {Write-Host '---------------------------------------------------'};
                         return $Items;
                 }
                 catch [System.Net.Http.HttpRequestException] {
@@ -817,8 +844,8 @@ if ($SkipCertificateCheck -eq 'true') {
                 try {
                         $obj = Invoke-RestMethod @params
                         $Items = $obj.items;
-                        Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand);
-                        Write-Host '---------------------------------------------------';
+                        if ($DEBUG) {Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand)};
+                        if ($DEBUG) {Write-Host '---------------------------------------------------'};
                         return $Items;
                 }
                 catch [System.Net.Http.HttpRequestException] {
@@ -905,8 +932,8 @@ if ($SkipCertificateCheck -eq 'true') {
                 try {
                         $obj = Invoke-RestMethod @params
                         $Items = $obj.items;
-                        Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand);
-                        Write-Host '---------------------------------------------------';
+                        if ($DEBUG) {Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand)};
+                        if ($DEBUG) {Write-Host '---------------------------------------------------'};
                         return $Items;
                 }
                 catch [System.Net.Http.HttpRequestException] {
@@ -994,8 +1021,8 @@ if ($SkipCertificateCheck -eq 'true') {
                 try {
                         $obj = Invoke-RestMethod @params
                         $Items = $obj.items;
-                        Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand);
-                        Write-Host '---------------------------------------------------';
+                        if ($DEBUG) {Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand)};
+                        if ($DEBUG) {Write-Host '---------------------------------------------------'};
                         return $Items;
                 }
                 catch [System.Net.Http.HttpRequestException] {
@@ -1090,8 +1117,8 @@ if ($SkipCertificateCheck -eq 'true') {
                 try {
                         $obj = Invoke-RestMethod @params
                         $Items = $obj.items;
-                        Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand);
-                        Write-Host '---------------------------------------------------';
+                        if ($DEBUG) {Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand)};
+                        if ($DEBUG) {Write-Host '---------------------------------------------------'};
                         return $Items;
                 }
                 catch [System.Net.Http.HttpRequestException] {
@@ -1206,8 +1233,8 @@ if ($SkipCertificateCheck -eq 'true') {
                 try {
                         $obj = Invoke-RestMethod @params
                         $Items = $obj.items;
-                        Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand);
-                        Write-Host '---------------------------------------------------';
+                        if ($DEBUG) {Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand)};
+                        if ($DEBUG) {Write-Host '---------------------------------------------------'};
                         return $Items;
                 }
                 catch [System.Net.Http.HttpRequestException] {
@@ -1336,8 +1363,8 @@ if ($SkipCertificateCheck -eq 'true') {
                 try {
                         $obj = Invoke-RestMethod @params
                         $Items = $obj.items;
-                        Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand);
-                        Write-Host '---------------------------------------------------';
+                        if ($DEBUG) {Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand)};
+                        if ($DEBUG) {Write-Host '---------------------------------------------------'};
                         return $Items;
                 }
                 catch [System.Net.Http.HttpRequestException] {
@@ -1452,8 +1479,8 @@ if ($SkipCertificateCheck -eq 'true') {
                 try {
                         $obj = Invoke-RestMethod @params
                         $Items = $obj.items;
-                        Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand);
-                        Write-Host '---------------------------------------------------';
+                        if ($DEBUG) {Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand)};
+                        if ($DEBUG) {Write-Host '---------------------------------------------------'};
                         return $Items;
                 }
                 catch [System.Net.Http.HttpRequestException] {
@@ -1569,8 +1596,8 @@ if ($SkipCertificateCheck -eq 'true') {
                 try {
                         $obj = Invoke-RestMethod @params
                         $Items = $obj.items;
-                        Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand);
-                        Write-Host '---------------------------------------------------';
+                        if ($DEBUG) {Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand)};
+                        if ($DEBUG) {Write-Host '---------------------------------------------------'};
                         return $Items;
                 }
                 catch [System.Net.Http.HttpRequestException] {
@@ -1683,8 +1710,8 @@ if ($SkipCertificateCheck -eq 'true') {
                 try {
                         $obj = Invoke-RestMethod @params
                         $Items = $obj.items;
-                        Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand);
-                        Write-Host '---------------------------------------------------';
+                        if ($DEBUG) {Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand)};
+                        if ($DEBUG) {Write-Host '---------------------------------------------------'};
                         return $Items;
                 }
                 catch [System.Net.Http.HttpRequestException] {
@@ -1831,8 +1858,8 @@ if ($Limit -gt 5)  { $Limit = 5;
                 try {
                         $obj = Invoke-RestMethod @params
                         $Items = $obj.items;
-                        Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand);
-                        Write-Host '---------------------------------------------------';
+                        if ($DEBUG) {Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand)};
+                        if ($DEBUG) {Write-Host '---------------------------------------------------'};
                         return $Items;
                 }
                 catch [System.Net.Http.HttpRequestException] {
@@ -1947,8 +1974,8 @@ $body = @{
                 try {
                         $obj = Invoke-RestMethod @params
                         $Items = $obj.items;
-                        Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand);
-                        Write-Host '---------------------------------------------------';
+                        if ($DEBUG) {Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand)};
+                        if ($DEBUG) {Write-Host '---------------------------------------------------'};
                         return $Items;
                 }
                 catch [System.Net.Http.HttpRequestException] {
@@ -2072,8 +2099,8 @@ if ($InputFile) {
                 try {
                         $obj = Invoke-RestMethod @params
                         $Items = $obj.items;
-                        Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand);
-                        Write-Host '---------------------------------------------------';
+                        if ($DEBUG) {Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand)};
+                        if ($DEBUG) {Write-Host '---------------------------------------------------'};
                         return $Items;
                 }
                 catch [System.Net.Http.HttpRequestException] {
@@ -2165,8 +2192,8 @@ if ($SkipCertificateCheck -eq 'true') {
                 try {
                         $obj = Invoke-RestMethod @params
                         $Items = $obj.items;
-                        Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand);
-                        Write-Host '---------------------------------------------------';
+                        if ($DEBUG) {Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand)};
+                        if ($DEBUG) {Write-Host '---------------------------------------------------'};
                         return $Items;
                 }
                 catch [System.Net.Http.HttpRequestException] {
@@ -2326,8 +2353,8 @@ Param(
                         try {
                                 $obj = Invoke-RestMethod @params
                                 $Items = $obj.items;
-                                Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand);
-                                Write-Host '---------------------------------------------------';
+                                if ($DEBUG) {Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand)};
+                                if ($DEBUG) {Write-Host '---------------------------------------------------'};
                                 return $Items;
                         }
                         catch [System.Net.Http.HttpRequestException] {
@@ -2488,8 +2515,8 @@ if ($Limit -gt 5)  { $Limit = 5;
                 try {
                         $obj = Invoke-RestMethod @params
                         $Items = $obj.items;
-                        Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand);
-                        Write-Host '---------------------------------------------------';
+                        if ($DEBUG) {Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand)};
+                        if ($DEBUG) {Write-Host '---------------------------------------------------'};
                         return $Items;
                 }
                 catch [System.Net.Http.HttpRequestException] {
@@ -2624,8 +2651,8 @@ if ($SkipCertificateCheck -eq 'true') {
                 try {
                         $obj = Invoke-RestMethod @params
                         $Items = $obj.items;
-                        Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand);
-                        Write-Host '---------------------------------------------------';
+                        if ($DEBUG) {Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand)};
+                        if ($DEBUG) {Write-Host '---------------------------------------------------'};
                         return $Items;
                 }
                 catch [System.Net.Http.HttpRequestException] {
@@ -2727,8 +2754,8 @@ if ($InputFile) {
                 try {
                         $obj = Invoke-RestMethod @params
                         $Items = $obj.items;
-                        Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand);
-                        Write-Host '---------------------------------------------------';
+                        if ($DEBUG) {Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand)};
+                        if ($DEBUG) {Write-Host '---------------------------------------------------'};
                         return $Items;
                 }
                 catch [System.Net.Http.HttpRequestException] {
@@ -2826,8 +2853,8 @@ if ($InputFile) {
                 try {
                         $obj = Invoke-RestMethod @params
                         $Items = $obj.items;
-                        Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand);
-                        Write-Host '---------------------------------------------------';
+                        if ($DEBUG) {Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand)};
+                        if ($DEBUG) {Write-Host '---------------------------------------------------'};
                         return $Items;
                 }
                 catch [System.Net.Http.HttpRequestException] {
@@ -2917,8 +2944,8 @@ if ($SkipCertificateCheck -eq 'true') {
                 try {
                         $obj = Invoke-RestMethod @params
                         $Items = $obj.items;
-                        Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand);
-                        Write-Host '---------------------------------------------------';
+                        if ($DEBUG) {Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand)};
+                        if ($DEBUG) {Write-Host '---------------------------------------------------'};
                         return $Items;
                 }
                 catch [System.Net.Http.HttpRequestException] {
@@ -3042,8 +3069,8 @@ if ($SkipCertificateCheck -eq 'true') {
                 try {
                         $obj = Invoke-RestMethod @params
                         $Items = $obj.items;
-                        Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand);
-                        Write-Host '---------------------------------------------------';
+                        if ($DEBUG) {Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand)};
+                        if ($DEBUG) {Write-Host '---------------------------------------------------'};
                         return $Items;
                 }
                 catch [System.Net.Http.HttpRequestException] {
@@ -3179,8 +3206,8 @@ if ($SkipCertificateCheck -eq 'true') {
                 try {
                         $obj = Invoke-RestMethod @params
                         $Items = $obj.items;
-                        Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand);
-                        Write-Host '---------------------------------------------------';
+                        if ($DEBUG) {Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand)};
+                        if ($DEBUG) {Write-Host '---------------------------------------------------'};
                         return $Items;
                 }
                 catch [System.Net.Http.HttpRequestException] {
@@ -3289,8 +3316,8 @@ if ($SkipCertificateCheck -eq 'true') {
                 try {
                         $obj = Invoke-RestMethod @params
                         $Items = $obj.items;
-                        Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand);
-                        Write-Host '---------------------------------------------------';
+                        if ($DEBUG) {Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand)};
+                        if ($DEBUG) {Write-Host '---------------------------------------------------'};
                         return $Items;
                 }
                 catch [System.Net.Http.HttpRequestException] {
@@ -3404,8 +3431,8 @@ if ($SkipCertificateCheck -eq 'true') {
                 try {
                         $obj = Invoke-RestMethod @params
                         $Items = $obj.items;
-                        Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand);
-                        Write-Host '---------------------------------------------------';
+                        if ($DEBUG) {Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand)};
+                        if ($DEBUG) {Write-Host '---------------------------------------------------'};
                         return $Items;
                 }
                 catch [System.Net.Http.HttpRequestException] {
@@ -3539,8 +3566,8 @@ if ($SkipCertificateCheck -eq 'true') {
                 try {
                         $obj = Invoke-RestMethod @params
                         $Items = $obj.items;
-                        Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand);
-                        Write-Host '---------------------------------------------------';
+                        if ($DEBUG) {Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand)};
+                        if ($DEBUG) {Write-Host '---------------------------------------------------'};
                         return $Items;
                 }
                 catch [System.Net.Http.HttpRequestException] {
@@ -3652,8 +3679,8 @@ if ($SkipCertificateCheck -eq 'true') {
                 try {
                         $obj = Invoke-RestMethod @params
                         $Items = $obj.items;
-                        Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand);
-                        Write-Host '---------------------------------------------------';
+                        if ($DEBUG) {Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand)};
+                        if ($DEBUG) {Write-Host '---------------------------------------------------'};
                         return $Items;
                 }
                 catch [System.Net.Http.HttpRequestException] {
@@ -3763,8 +3790,8 @@ if ($SkipCertificateCheck -eq 'true') {
                 try {
                         $obj = Invoke-RestMethod @params
                         $Items = $obj.items;
-                        Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand);
-                        Write-Host '---------------------------------------------------';
+                        if ($DEBUG) {Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand)};
+                        if ($DEBUG) {Write-Host '---------------------------------------------------'};
                         return $Items;
                 }
                 catch [System.Net.Http.HttpRequestException] {
@@ -3887,8 +3914,8 @@ if ($SkipCertificateCheck -eq 'true') {
                 try {
                         $obj = Invoke-RestMethod @params
                         $Items = $obj.items;
-                        Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand);
-                        Write-Host '---------------------------------------------------';
+                        if ($DEBUG) {Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand)};
+                        if ($DEBUG) {Write-Host '---------------------------------------------------'};
                         return $Items;
                 }
                 catch [System.Net.Http.HttpRequestException] {
@@ -4039,8 +4066,8 @@ if ($SkipCertificateCheck -eq 'true') {
                 try {
                         $obj = Invoke-RestMethod @params
                         $Items = $obj.items;
-                        Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand);
-                        Write-Host '---------------------------------------------------';
+                        if ($DEBUG) {Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand)};
+                        if ($DEBUG) {Write-Host '---------------------------------------------------'};
                         return $Items;
                 }
                 catch [System.Net.Http.HttpRequestException] {
@@ -4201,8 +4228,8 @@ if ($InputFile) {
                 try {
                         $obj = Invoke-RestMethod @params
                         $Items = $obj.items;
-                        Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand);
-                        Write-Host '---------------------------------------------------';
+                        if ($DEBUG) {Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand)};
+                        if ($DEBUG) {Write-Host '---------------------------------------------------'};
                         return $Items;
                 }
                 catch [System.Net.Http.HttpRequestException] {
@@ -4323,8 +4350,8 @@ if ($SkipCertificateCheck -eq 'true') {
                 try {
                         $obj = Invoke-RestMethod @params
                         $Items = $obj.items;
-                        Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand);
-                        Write-Host '---------------------------------------------------';
+                        if ($DEBUG) {Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand)};
+                        if ($DEBUG) {Write-Host '---------------------------------------------------'};
                         return $Items;
                 }
                 catch [System.Net.Http.HttpRequestException] {
@@ -4436,8 +4463,8 @@ if ($InputFile) {
                 try {
                         $obj = Invoke-RestMethod @params
                         $Items = $obj.items;
-                        Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand);
-                        Write-Host '---------------------------------------------------';
+                        if ($DEBUG) {Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand)};
+                        if ($DEBUG) {Write-Host '---------------------------------------------------'};
                         return $Items;
                 }
                 catch [System.Net.Http.HttpRequestException] {
@@ -4586,8 +4613,8 @@ if ($SkipCertificateCheck -eq 'true') {
                 try {
                         $obj = Invoke-RestMethod @params
                         $Items = $obj.items;
-                        Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand);
-                        Write-Host '---------------------------------------------------';
+                        if ($DEBUG) {Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand)};
+                        if ($DEBUG) {Write-Host '---------------------------------------------------'};
                         return $Items;
                 }
                 catch [System.Net.Http.HttpRequestException] {
@@ -4711,8 +4738,8 @@ if ($InputFile) {
                 try {
                         $obj = Invoke-RestMethod @params
                         $Items = $obj.items;
-                        Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand);
-                        Write-Host '---------------------------------------------------';
+                        if ($DEBUG) {Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand)};
+                        if ($DEBUG) {Write-Host '---------------------------------------------------'};
                         return $Items;
                 }
                 catch [System.Net.Http.HttpRequestException] {
@@ -4863,8 +4890,8 @@ if ($InputFile) {
                 try {
                         $obj = Invoke-RestMethod @params
                         $Items = $obj.items;
-                        Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand);
-                        Write-Host '---------------------------------------------------';
+                        if ($DEBUG) {Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand)};
+                        if ($DEBUG) {Write-Host '---------------------------------------------------'};
                         return $Items;
                 }
                 catch [System.Net.Http.HttpRequestException] {
@@ -4961,8 +4988,8 @@ if ($SkipCertificateCheck -eq 'true') {
                 try {
                         $obj = Invoke-RestMethod @params
                         $Items = $obj.items;
-                        Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand);
-                        Write-Host '---------------------------------------------------';
+                        if ($DEBUG) {Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand)};
+                        if ($DEBUG) {Write-Host '---------------------------------------------------'};
                         return $Items;
                 }
                 catch [System.Net.Http.HttpRequestException] {
@@ -5130,8 +5157,8 @@ if ($SkipCertificateCheck -eq 'true') {
                 try {
                         $obj = Invoke-RestMethod @params
                         $Items = $obj.items;
-                        Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand);
-                        Write-Host '---------------------------------------------------';
+                        if ($DEBUG) {Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand)};
+                        if ($DEBUG) {Write-Host '---------------------------------------------------'};
                         return $Items;
                 }
                 catch [System.Net.Http.HttpRequestException] {
@@ -5270,8 +5297,8 @@ if ($SkipCertificateCheck -eq 'true') {
                 try {
                         $obj = Invoke-RestMethod @params
                         $Items = $obj.items;
-                        Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand);
-                        Write-Host '---------------------------------------------------';
+                        if ($DEBUG) {Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand)};
+                        if ($DEBUG) {Write-Host '---------------------------------------------------'};
                         return $Items;
                 }
                 catch [System.Net.Http.HttpRequestException] {
@@ -5384,8 +5411,8 @@ if ($SkipCertificateCheck -eq 'true') {
                 try {
                         $obj = Invoke-RestMethod @params
                         $Items = $obj.items;
-                        Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand);
-                        Write-Host '---------------------------------------------------';
+                        if ($DEBUG) {Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand)};
+                        if ($DEBUG) {Write-Host '---------------------------------------------------'};
                         return $Items;
                 }
                 catch [System.Net.Http.HttpRequestException] {
@@ -5498,8 +5525,8 @@ if ($SkipCertificateCheck -eq 'true') {
                         try {
                                 $obj = Invoke-RestMethod @params
                                 $Items = $obj.items;
-                                Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand);
-                                Write-Host '---------------------------------------------------';
+                                if ($DEBUG) {Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand)};
+                                if ($DEBUG) {Write-Host '---------------------------------------------------'};
                                 return $Items;
                         }
                         catch [System.Net.Http.HttpRequestException] {
@@ -5627,8 +5654,8 @@ if ($SkipCertificateCheck -eq 'true') {
                 try {
                         $obj = Invoke-RestMethod @params
                         $Items = $obj.items;
-                        Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand);
-                        Write-Host '---------------------------------------------------';
+                        if ($DEBUG) {Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand)};
+                        if ($DEBUG) {Write-Host '---------------------------------------------------'};
                         return $Items;
                 }
                 catch [System.Net.Http.HttpRequestException] {
@@ -5735,8 +5762,8 @@ if ($SkipCertificateCheck -eq 'true') {
                 try {
                         $obj = Invoke-RestMethod @params
                         $Items = $obj.items;
-                        Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand);
-                        Write-Host '---------------------------------------------------';
+                        if ($DEBUG) {Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand)};
+                        if ($DEBUG) {Write-Host '---------------------------------------------------'};
                         return $Items;
                 }
                 catch [System.Net.Http.HttpRequestException] {
@@ -5846,8 +5873,8 @@ if ($SkipCertificateCheck -eq 'true') {
                 try {
                         $obj = Invoke-RestMethod @params
                         $Items = $obj.items;
-                        Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand);
-                        Write-Host '---------------------------------------------------';
+                        if ($DEBUG) {Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand)};
+                        if ($DEBUG) {Write-Host '---------------------------------------------------'};
                         return $Items;
                 }
                 catch [System.Net.Http.HttpRequestException] {
@@ -5941,8 +5968,8 @@ if ($SkipCertificateCheck -eq 'true') {
                 try {
                         $obj = Invoke-RestMethod @params
                         $Items = $obj.items;
-                        Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand);
-                        Write-Host '---------------------------------------------------';
+                        if ($DEBUG) {Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand)};
+                        if ($DEBUG) {Write-Host '---------------------------------------------------'};
                         return $Items;
                 }
                 catch [System.Net.Http.HttpRequestException] {
@@ -6080,8 +6107,8 @@ if ($SkipCertificateCheck -eq 'true') {
                 try {
                         $obj = Invoke-RestMethod @params
                         $Items = $obj.items;
-                        Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand);
-                        Write-Host '---------------------------------------------------';
+                        if ($DEBUG) {Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand)};
+                        if ($DEBUG) {Write-Host '---------------------------------------------------'};
                         return $Items;
                 }
                 catch [System.Net.Http.HttpRequestException] {
@@ -6197,8 +6224,8 @@ if ($SkipCertificateCheck -eq 'true') {
                 try {
                         $obj = Invoke-RestMethod @params
                         $Items = $obj.items;
-                        Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand);
-                        Write-Host '---------------------------------------------------';
+                        if ($DEBUG) {Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand)};
+                        if ($DEBUG) {Write-Host '---------------------------------------------------'};
                         return $Items;
                 }
                 catch [System.Net.Http.HttpRequestException] {
@@ -6316,8 +6343,8 @@ if ($SkipCertificateCheck -eq 'true') {
                 try {
                         $obj = Invoke-RestMethod @params
                         $Items = $obj.items;
-                        Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand);
-                        Write-Host '---------------------------------------------------';
+                        if ($DEBUG) {Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand)};
+                        if ($DEBUG) {Write-Host '---------------------------------------------------'};
                         return $Items;
                 }
                 catch [System.Net.Http.HttpRequestException] {
@@ -6413,8 +6440,8 @@ if ($SkipCertificateCheck -eq 'true') {
                 try {
                         $obj = Invoke-RestMethod @params
                         $Items = $obj.items;
-                        Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand);
-                        Write-Host '---------------------------------------------------';
+                        if ($DEBUG) {Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand)};
+                        if ($DEBUG) {Write-Host '---------------------------------------------------'};
                         return $Items;
                 }
                 catch [System.Net.Http.HttpRequestException] {
@@ -6534,8 +6561,8 @@ if ($SkipCertificateCheck -eq 'true') {
                 try {
                         $obj = Invoke-RestMethod @params
                         $Items = $obj.items;
-                        Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand);
-                        Write-Host '---------------------------------------------------';
+                        if ($DEBUG) {Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand)};
+                        if ($DEBUG) {Write-Host '---------------------------------------------------'};
                         return $Items;
                 }
                 catch [System.Net.Http.HttpRequestException] {
@@ -6638,8 +6665,8 @@ if ($SkipCertificateCheck -eq 'true') {
                 try {
                         $obj = Invoke-RestMethod @params
                         $Items = $obj.items;
-                        Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand);
-                        Write-Host '---------------------------------------------------';
+                        if ($DEBUG) {Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand)};
+                        if ($DEBUG) {Write-Host '---------------------------------------------------'};
                         return $Items;
                 }
                 catch [System.Net.Http.HttpRequestException] {
@@ -6729,21 +6756,23 @@ if ($SkipCertificateCheck -eq 'true') {
                 $params = @{
                         SkipCertificateCheck = $skipcert
                         Method  = 'GET' 
-                        Headers = @{ 'x-auth-token' = $(Get-InternalPfbAuthToken)} 
+                        Headers = @{ 'x-auth-token' = $(Get-InternalPfbAuthToken) 
+                        ContentType = 'application/octet-stream'} 
                         Uri = $request.Uri
                         #Body = (ConvertTo-JSON $body) 
-                        ContentType = 'application/octet-stream'
-                        OutFile = $FileName     
+                        Body = " " 
+                        #ContentType = 'application/octet-stream'
+                        #OutFile = $FileName     
                 } 
                 
                         if ($DEBUG) { write-host $request.Uri };
                         if ($DEBUG) { write-host @params };
                 
                         try {
-                                $obj = Invoke-RestMethod @params -Verbose
+                                $obj = Invoke-RestMethod @params -Verbose -PreserveAuthorizationOnRedirect 
                                 #$Items = $obj.items;
-                                Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand);
-                                Write-Host '---------------------------------------------------';
+                                if ($DEBUG) {Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand)};
+                                if ($DEBUG) {Write-Host '---------------------------------------------------'};
                                 #Set-Content -Path $FileName -Value $obj.Content -AsByteStream
                                 #return $obj;
                                 #return $Items;
@@ -6841,8 +6870,8 @@ if ($SkipCertificateCheck -eq 'true') {
                 try {
                         $obj = Invoke-RestMethod @params
                         $Items = $obj.items;
-                        Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand);
-                        Write-Host '---------------------------------------------------';
+                        if ($DEBUG) {Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand)};
+                        if ($DEBUG) {Write-Host '---------------------------------------------------'};
                         return $Items;
                 }
                 catch [System.Net.Http.HttpRequestException] {
@@ -6949,8 +6978,8 @@ if ($InputFile) {
                 try {
                         $obj = Invoke-RestMethod @params
                         $Items = $obj.items;
-                        Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand);
-                        Write-Host '---------------------------------------------------';
+                        if ($DEBUG) {Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand)};
+                        if ($DEBUG) {Write-Host '---------------------------------------------------'};
                         return $Items;
                 }
                 catch [System.Net.Http.HttpRequestException] {
@@ -7070,8 +7099,8 @@ if ($SkipCertificateCheck -eq 'true') {
                         try {
                                 $obj = Invoke-RestMethod @params
                                 $Items = $obj.items;
-                                Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand);
-                                Write-Host '---------------------------------------------------';
+                                if ($DEBUG) {Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand)};
+                                if ($DEBUG) {Write-Host '---------------------------------------------------'};
                                 return $Items;
                         }
                         catch [System.Net.Http.HttpRequestException] {
@@ -7169,8 +7198,8 @@ if ($InputFile) {
                 try {
                         $obj = Invoke-RestMethod @params
                         $Items = $obj.items;
-                        Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand);
-                        Write-Host '---------------------------------------------------';
+                        if ($DEBUG) {Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand)};
+                        if ($DEBUG) {Write-Host '---------------------------------------------------'};
                         return $Items;
                 }
                 catch [System.Net.Http.HttpRequestException] {
@@ -7271,8 +7300,8 @@ if ($InputFile) {
                 try {
                         $obj = Invoke-RestMethod @params
                         $Items = $obj.items;
-                        Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand);
-                        Write-Host '---------------------------------------------------';
+                        if ($DEBUG) {Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand)};
+                        if ($DEBUG) {Write-Host '---------------------------------------------------'};
                         return $Items;
                 }
                 catch [System.Net.Http.HttpRequestException] {
@@ -7365,8 +7394,8 @@ if ($SkipCertificateCheck -eq 'true') {
                 try {
                         $obj = Invoke-RestMethod @params
                         $Items = $obj.items;
-                        Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand);
-                        Write-Host '---------------------------------------------------';
+                        if ($DEBUG) {Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand)};
+                        if ($DEBUG) {Write-Host '---------------------------------------------------'};
                         return $Items;
                 }
                 catch [System.Net.Http.HttpRequestException] {
@@ -7485,8 +7514,8 @@ if ($SkipCertificateCheck -eq 'true') {
                         try {
                                 $obj = Invoke-RestMethod @params
                                 $Items = $obj.items;
-                                Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand);
-                                Write-Host '---------------------------------------------------';
+                                if ($DEBUG) {Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand)};
+                                if ($DEBUG) {Write-Host '---------------------------------------------------'};
                                 return $Items;
                         }
                         catch [System.Net.Http.HttpRequestException] {
@@ -7584,8 +7613,8 @@ if ($InputFile) {
                 try {
                         $obj = Invoke-RestMethod @params
                         $Items = $obj.items;
-                        Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand);
-                        Write-Host '---------------------------------------------------';
+                        if ($DEBUG) {Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand)};
+                        if ($DEBUG) {Write-Host '---------------------------------------------------'};
                         return $Items;
                 }
                 catch [System.Net.Http.HttpRequestException] {
@@ -7687,8 +7716,8 @@ if ($InputFile) {
                         try {
                                 $obj = Invoke-RestMethod @params
                                 $Items = $obj.items;
-                                Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand);
-                                Write-Host '---------------------------------------------------';
+                                if ($DEBUG) {Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand)};
+                                if ($DEBUG) {Write-Host '---------------------------------------------------'};
                                 return $Items;
                         }
                         catch [System.Net.Http.HttpRequestException] {
@@ -7782,8 +7811,8 @@ if ($SkipCertificateCheck -eq 'true') {
                 try {
                         $obj = Invoke-RestMethod @params
                         $Items = $obj.items;
-                        Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand);
-                        Write-Host '---------------------------------------------------';
+                        if ($DEBUG) {Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand)};
+                        if ($DEBUG) {Write-Host '---------------------------------------------------'};
                         return $Items;
                 }
                 catch [System.Net.Http.HttpRequestException] {
@@ -7864,8 +7893,8 @@ if ($SkipCertificateCheck -eq 'true') {
                 try {
                         $obj = Invoke-RestMethod @params
                         $Items = $obj.items;
-                        Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand);
-                        Write-Host '---------------------------------------------------';
+                        if ($DEBUG) {Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand)};
+                        if ($DEBUG) {Write-Host '---------------------------------------------------'};
                         return $Items;
                 }
                 catch [System.Net.Http.HttpRequestException] {
@@ -7958,8 +7987,8 @@ if ($InputFile) {
                         try {
                                 $obj = Invoke-RestMethod @params
                                 $Items = $obj.items;
-                                Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand);
-                                Write-Host '---------------------------------------------------';
+                                if ($DEBUG) {Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand)};
+                                if ($DEBUG) {Write-Host '---------------------------------------------------'};
                                 return $Items;
                         }
                         catch [System.Net.Http.HttpRequestException] {
@@ -8078,8 +8107,8 @@ if ($SkipCertificateCheck -eq 'true') {
                         try {
                                 $obj = Invoke-RestMethod @params
                                 $Items = $obj.items;
-                                Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand);
-                                Write-Host '---------------------------------------------------';
+                                if ($DEBUG) {Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand)};
+                                if ($DEBUG) {Write-Host '---------------------------------------------------'};
                                 return $Items;
                         }
                         catch [System.Net.Http.HttpRequestException] {
@@ -8183,8 +8212,8 @@ if ($InputFile) {
                         try {
                                 $obj = Invoke-RestMethod @params
                                 $Items = $obj.items;
-                                Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand);
-                                Write-Host '---------------------------------------------------';
+                                if ($DEBUG) {Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand)};
+                                if ($DEBUG) {Write-Host '---------------------------------------------------'};
                                 return $Items;
                         }
                         catch [System.Net.Http.HttpRequestException] {
@@ -8279,8 +8308,8 @@ if ($InputFile) {
                         try {
                                 $obj = Invoke-RestMethod @params
                                 $Items = $obj.items;
-                                Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand);
-                                Write-Host '---------------------------------------------------';
+                                if ($DEBUG) {Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand)};
+                                if ($DEBUG) {Write-Host '---------------------------------------------------'};
                                 return $Items;
                         }
                         catch [System.Net.Http.HttpRequestException] {
@@ -8367,8 +8396,8 @@ if ($SkipCertificateCheck -eq 'true') {
                         try {
                                 $obj = Invoke-RestMethod @params
                                 $Items = $obj.items;
-                                Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand);
-                                Write-Host '---------------------------------------------------';
+                                if ($DEBUG) {Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand)};
+                                if ($DEBUG) {Write-Host '---------------------------------------------------'};
                                 return $Items;
                         }
                         catch [System.Net.Http.HttpRequestException] {
@@ -8500,8 +8529,8 @@ if ($SkipCertificateCheck -eq 'true') {
                         try {
                                 $obj = Invoke-RestMethod @params
                                 $Items = $obj.items;
-                                Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand);
-                                Write-Host '---------------------------------------------------';
+                                if ($DEBUG) {Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand)};
+                                if ($DEBUG) {Write-Host '---------------------------------------------------'};
                                 return $Items;
                         }
                         catch [System.Net.Http.HttpRequestException] {
@@ -8600,8 +8629,8 @@ if ($SkipCertificateCheck -eq 'true') {
                 try {
                         $obj = Invoke-RestMethod @params
                         $Items = $obj.items;
-                        Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand);
-                        Write-Host '---------------------------------------------------';
+                        if ($DEBUG) {Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand)};
+                        if ($DEBUG) {Write-Host '---------------------------------------------------'};
                         return $Items;
                 }
                 catch [System.Net.Http.HttpRequestException] {
@@ -8701,8 +8730,8 @@ if ($SkipCertificateCheck -eq 'true') {
                 try {
                         $obj = Invoke-RestMethod @params
                         $Items = $obj.items;
-                        Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand);
-                        Write-Host '---------------------------------------------------';
+                        if ($DEBUG) {Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand)};
+                        if ($DEBUG) {Write-Host '---------------------------------------------------'};
                         return $Items;
                 }
                 catch [System.Net.Http.HttpRequestException] {
@@ -8792,8 +8821,8 @@ if ($Limit -gt 5)  { $Limit = 5;
                 try {
                         $obj = Invoke-RestMethod @params
                         $Items = $obj.items;
-                        Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand);
-                        Write-Host '---------------------------------------------------';
+                        if ($DEBUG) {Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand)};
+                        if ($DEBUG) {Write-Host '---------------------------------------------------'};
                         return $Items;
                 }
                 catch [System.Net.Http.HttpRequestException] {
@@ -8927,8 +8956,8 @@ if ($Limit -gt 5)  { $Limit = 5;
                 try {
                         $obj = Invoke-RestMethod @params
                         $Items = $obj.items;
-                        Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand);
-                        Write-Host '---------------------------------------------------';
+                        if ($DEBUG) {Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand)};
+                        if ($DEBUG) {Write-Host '---------------------------------------------------'};
                         return $Items;
                 }
                 catch [System.Net.Http.HttpRequestException] {
@@ -9024,8 +9053,8 @@ if ($SkipCertificateCheck -eq 'true') {
                 try {
                         $obj = Invoke-RestMethod @params
                         $Items = $obj.items;
-                        Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand);
-                        Write-Host '---------------------------------------------------';
+                        if ($DEBUG) {Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand)};
+                        if ($DEBUG) {Write-Host '---------------------------------------------------'};
                         return $Items;
                 }
                 catch [System.Net.Http.HttpRequestException] {
@@ -9112,8 +9141,8 @@ if ($SkipCertificateCheck -eq 'true') {
                 try {
                         $obj = Invoke-RestMethod @params
                         $Items = $obj.items;
-                        Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand);
-                        Write-Host '---------------------------------------------------';
+                        if ($DEBUG) {Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand)};
+                        if ($DEBUG) {Write-Host '---------------------------------------------------'};
                         return $Items;
                 }
                 catch [System.Net.Http.HttpRequestException] {
@@ -9247,8 +9276,8 @@ if ($Limit -gt 5)  { $Limit = 5;
                 try {
                         $obj = Invoke-RestMethod @params
                         $Items = $obj.items;
-                        Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand);
-                        Write-Host '---------------------------------------------------';
+                        if ($DEBUG) {Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand)};
+                        if ($DEBUG) {Write-Host '---------------------------------------------------'};
                         return $Items;
                 }
                 catch [System.Net.Http.HttpRequestException] {
@@ -9352,8 +9381,8 @@ if ($InputFile) {
                 try {
                         $obj = Invoke-RestMethod @params
                         $Items = $obj.items;
-                        Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand);
-                        Write-Host '---------------------------------------------------';
+                        if ($DEBUG) {Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand)};
+                        if ($DEBUG) {Write-Host '---------------------------------------------------'};
                         return $Items;
                 }
                 catch [System.Net.Http.HttpRequestException] {
@@ -9440,8 +9469,8 @@ if ($SkipCertificateCheck -eq 'true') {
                 try {
                         $obj = Invoke-RestMethod @params
                         $Items = $obj.items;
-                        Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand);
-                        Write-Host '---------------------------------------------------';
+                        if ($DEBUG) {Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand)};
+                        if ($DEBUG) {Write-Host '---------------------------------------------------'};
                         return $Items;
                 }
                 catch [System.Net.Http.HttpRequestException] {
@@ -9567,8 +9596,8 @@ if ($SkipCertificateCheck -eq 'true') {
                 try {
                         $obj = Invoke-RestMethod @params
                         $Items = $obj.items;
-                        Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand);
-                        Write-Host '---------------------------------------------------';
+                        if ($DEBUG) {Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand)};
+                        if ($DEBUG) {Write-Host '---------------------------------------------------'};
                         return $Items;
                 }
                 catch [System.Net.Http.HttpRequestException] {
@@ -9672,8 +9701,8 @@ $params = @{
         try {
                 $obj = Invoke-RestMethod @params
                 $Items = $obj.items;
-                Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand);
-                Write-Host '---------------------------------------------------';
+                if ($DEBUG) {Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand)};
+                if ($DEBUG) {Write-Host '---------------------------------------------------'};
                 return $Items;
         }
         catch [System.Net.Http.HttpRequestException] {
@@ -9786,8 +9815,8 @@ $params = @{
         try {
                 $obj = Invoke-RestMethod @params
                 $Items = $obj.items;
-                Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand);
-                Write-Host '---------------------------------------------------';
+                if ($DEBUG) {Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand)};
+                if ($DEBUG) {Write-Host '---------------------------------------------------'};
                 return $Items;
         }
         catch [System.Net.Http.HttpRequestException] {
@@ -9879,8 +9908,8 @@ if ($SkipCertificateCheck -eq 'true') {
         try {
                 $obj = Invoke-RestMethod @params
                 $Items = $obj.items;
-                Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand);
-                Write-Host '---------------------------------------------------';
+                if ($DEBUG) {Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand)};
+                if ($DEBUG) {Write-Host '---------------------------------------------------'};
                 return $Items;
         }
         catch [System.Net.Http.HttpRequestException] {
@@ -10017,8 +10046,8 @@ if ($SkipCertificateCheck -eq 'true') {
         try {
                 $obj = Invoke-RestMethod @params
                 $Items = $obj.items;
-                Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand);
-                Write-Host '---------------------------------------------------';
+                if ($DEBUG) {Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand)};
+                if ($DEBUG) {Write-Host '---------------------------------------------------'};
                 return $Items;
         }
         catch [System.Net.Http.HttpRequestException] {
@@ -10131,8 +10160,8 @@ if ($SkipCertificateCheck -eq 'true') {
         try {
                 $obj = Invoke-RestMethod @params
                 $Items = $obj.items;
-                Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand);
-                Write-Host '---------------------------------------------------';
+                if ($DEBUG) {Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand)};
+                if ($DEBUG) {Write-Host '---------------------------------------------------'};
                 return $Items;
         }
         catch [System.Net.Http.HttpRequestException] {
@@ -10238,8 +10267,8 @@ if ($SkipCertificateCheck -eq 'true') {
         try {
                 $obj = Invoke-RestMethod @params
                 $Items = $obj.items;
-                Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand);
-                Write-Host '---------------------------------------------------';
+                if ($DEBUG) {Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand)};
+                if ($DEBUG) {Write-Host '---------------------------------------------------'};
                 return $Items;
         }
         catch [System.Net.Http.HttpRequestException] {
@@ -10379,8 +10408,8 @@ if ($SkipCertificateCheck -eq 'true') {
         try {
                 $obj = Invoke-RestMethod @params
                 $Items = $obj.items;
-                Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand);
-                Write-Host '---------------------------------------------------';
+                if ($DEBUG) {Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand)};
+                if ($DEBUG) {Write-Host '---------------------------------------------------'};
                 return $Items;
         }
         catch [System.Net.Http.HttpRequestException] {
@@ -10517,8 +10546,8 @@ if ($SkipCertificateCheck -eq 'true') {
         try {
                 $obj = Invoke-RestMethod @params
                 $Items = $obj.items;
-                Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand);
-                Write-Host '---------------------------------------------------';
+                if ($DEBUG) {Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand)};
+                if ($DEBUG) {Write-Host '---------------------------------------------------'};
                 return $Items;
         }
         catch [System.Net.Http.HttpRequestException] {
@@ -10663,8 +10692,8 @@ if ($SkipCertificateCheck -eq 'true') {
         try {
                 $obj = Invoke-RestMethod @params
                 $Items = $obj.items;
-                Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand);
-                Write-Host '---------------------------------------------------';
+                if ($DEBUG) {Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand)};
+                if ($DEBUG) {Write-Host '---------------------------------------------------'};
                 return $Items;
         }
         catch [System.Net.Http.HttpRequestException] {
@@ -10777,8 +10806,8 @@ $body = " { 'quota': $Quota } " ;
         try {
                 $obj = Invoke-RestMethod @params
                 $Items = $obj.items;
-                Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand);
-                Write-Host '---------------------------------------------------';
+                if ($DEBUG) {Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand)};
+                if ($DEBUG) {Write-Host '---------------------------------------------------'};
                 return $Items;
         }
         catch [System.Net.Http.HttpRequestException] {
@@ -10888,8 +10917,8 @@ $body = " { 'quota': $Quota } " ;
         try {
                 $obj = Invoke-RestMethod @params
                 $Items = $obj.items;
-                Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand);
-                Write-Host '---------------------------------------------------';
+                if ($DEBUG) {Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand)};
+                if ($DEBUG) {Write-Host '---------------------------------------------------'};
                 return $Items;
         }
         catch [System.Net.Http.HttpRequestException] {
@@ -10997,8 +11026,8 @@ if ($SkipCertificateCheck -eq 'true') {
         try {
                 $obj = Invoke-RestMethod @params
                 $Items = $obj.items;
-                Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand);
-                Write-Host '---------------------------------------------------';
+                if ($DEBUG) {Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand)};
+                if ($DEBUG) {Write-Host '---------------------------------------------------'};
                 return $Items;
         }
         catch [System.Net.Http.HttpRequestException] {
@@ -11141,8 +11170,8 @@ if ($SkipCertificateCheck -eq 'true') {
         try {
                 $obj = Invoke-RestMethod @params
                 $Items = $obj.items;
-                Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand);
-                Write-Host '---------------------------------------------------';
+                if ($DEBUG) {Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand)};
+                if ($DEBUG) {Write-Host '---------------------------------------------------'};
                 return $Items;
         }
         catch [System.Net.Http.HttpRequestException] {
@@ -11258,8 +11287,8 @@ $body = " { 'quota': $Quota } " ;
         try {
                 $obj = Invoke-RestMethod @params
                 $Items = $obj.items;
-                Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand);
-                Write-Host '---------------------------------------------------';
+                if ($DEBUG) {Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand)};
+                if ($DEBUG) {Write-Host '---------------------------------------------------'};
                 return $Items;
         }
         catch [System.Net.Http.HttpRequestException] {
@@ -11369,8 +11398,8 @@ $body = " { 'quota': $Quota } " ;
         try {
                 $obj = Invoke-RestMethod @params
                 $Items = $obj.items;
-                Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand);
-                Write-Host '---------------------------------------------------';
+                if ($DEBUG) {Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand)};
+                if ($DEBUG) {Write-Host '---------------------------------------------------'};
                 return $Items;
         }
         catch [System.Net.Http.HttpRequestException] {
@@ -11478,8 +11507,8 @@ if ($SkipCertificateCheck -eq 'true') {
         try {
                 $obj = Invoke-RestMethod @params
                 $Items = $obj.items;
-                Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand);
-                Write-Host '---------------------------------------------------';
+                if ($DEBUG) {Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand)};
+                if ($DEBUG) {Write-Host '---------------------------------------------------'};
                 return $Items;
         }
         catch [System.Net.Http.HttpRequestException] {
@@ -11614,8 +11643,8 @@ $uri = [System.Web.HttpUtility]::ParseQueryString([String]::Empty)
         try {
                 $obj = Invoke-RestMethod @params
                 $Items = $obj.items;
-                Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand);
-                Write-Host '---------------------------------------------------';
+                if ($DEBUG) {Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand)};
+                if ($DEBUG) {Write-Host '---------------------------------------------------'};
                 return $Items;
         }
         catch [System.Net.Http.HttpRequestException] {
@@ -11750,8 +11779,8 @@ $uri = [System.Web.HttpUtility]::ParseQueryString([String]::Empty)
         try {
                 $obj = Invoke-RestMethod @params
                 $Items = $obj.items;
-                Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand);
-                Write-Host '---------------------------------------------------';
+                if ($DEBUG) {Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand)};
+                if ($DEBUG) {Write-Host '---------------------------------------------------'};
                 return $Items;
         }
         catch [System.Net.Http.HttpRequestException] {
@@ -11887,8 +11916,8 @@ $uri = [System.Web.HttpUtility]::ParseQueryString([String]::Empty)
         try {
                 $obj = Invoke-RestMethod @params
                 $Items = $obj.items;
-                Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand);
-                Write-Host '---------------------------------------------------';
+                if ($DEBUG) {Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand)};
+                if ($DEBUG) {Write-Host '---------------------------------------------------'};
                 return $Items;
         }
         catch [System.Net.Http.HttpRequestException] {
@@ -12011,8 +12040,8 @@ $uri = [System.Web.HttpUtility]::ParseQueryString([String]::Empty)
         try {
                 $obj = Invoke-RestMethod @params
                 $Items = $obj.items;
-                Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand);
-                Write-Host '---------------------------------------------------';
+                if ($DEBUG) {Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand)};
+                if ($DEBUG) {Write-Host '---------------------------------------------------'};
                 return $Items;
         }
         catch [System.Net.Http.HttpRequestException] {
@@ -12140,8 +12169,8 @@ $uri = [System.Web.HttpUtility]::ParseQueryString([String]::Empty)
         try {
                 $obj = Invoke-RestMethod @params
                 $Items = $obj.items;
-                Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand);
-                Write-Host '---------------------------------------------------';
+                if ($DEBUG) {Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand)};
+                if ($DEBUG) {Write-Host '---------------------------------------------------'};
                 return $Items;
         }
         catch [System.Net.Http.HttpRequestException] {
@@ -12234,8 +12263,8 @@ $uri = [System.Web.HttpUtility]::ParseQueryString([String]::Empty)
         try {
                 $obj = Invoke-RestMethod @params
                 $Items = $obj.items;
-                Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand);
-                Write-Host '---------------------------------------------------';
+                if ($DEBUG) {Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand)};
+                if ($DEBUG) {Write-Host '---------------------------------------------------'};
                 return $Items;
         }
         catch [System.Net.Http.HttpRequestException] {
@@ -12364,8 +12393,8 @@ $uri = [System.Web.HttpUtility]::ParseQueryString([String]::Empty)
         try {
                 $obj = Invoke-RestMethod @params
                 $Items = $obj.items;
-                Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand);
-                Write-Host '---------------------------------------------------';
+                if ($DEBUG) {Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand)};
+                if ($DEBUG) {Write-Host '---------------------------------------------------'};
                 return $Items;
         }
         catch [System.Net.Http.HttpRequestException] {
@@ -12471,8 +12500,8 @@ $uri = [System.Web.HttpUtility]::ParseQueryString([String]::Empty)
         try {
                 $obj = Invoke-RestMethod @params
                 $Items = $obj.items;
-                Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand);
-                Write-Host '---------------------------------------------------';
+                if ($DEBUG) {Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand)};
+                if ($DEBUG) {Write-Host '---------------------------------------------------'};
                 return $Items;
         }
         catch [System.Net.Http.HttpRequestException] {
