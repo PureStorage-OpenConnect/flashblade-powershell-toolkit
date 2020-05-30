@@ -53,11 +53,12 @@ function Get-PfbDateSinceEpoc()
 {
 <#
 .SYNOPSIS
-	Returns the date since EPOC from the time inputted.
+    Returns the date since EPOC from the time inputted.
 .DESCRIPTION
     Helper function
     Returns the date since EPOC from the time inputted.
 .EXAMPLE
+    Get-PfbDateSinceEpoc '17/2/2020 19:00:00'
     get-date (get-date -Date "17/2/2020 19:00:00").ToUniversalTime() -UFormat %s
 .OUTPUTS
     EpocTime in seconds since input e.g. 1581937200
@@ -205,6 +206,16 @@ function Get-InternalCatchallError ()
         break;
 }
 
+
+function Test-APIVersion ($APIVers, $MinAPIVers) 
+{                 
+        if ($APIVers -lt $MinAPIVers) {
+                Write-Output "Sorry minimum API Version should be $MinAPIVers - you are using $APIVers"
+                break;
+        }
+       
+}
+
 function Get-PfbAPIVers()
 {
 <#
@@ -338,7 +349,7 @@ Param(
   [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $SkipCertificateCheck =$null,
   [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $Filter,
   [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $Ids = $null,
-  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][int32] $Limit = $null,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][int32]  $Limit = $null,
   [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $Names = $null,
   [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $Sort = $null,
   [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $Start = $null,
@@ -1154,9 +1165,9 @@ function Get-PfbArraySpace()
 .INPUTS
         FlashBlade (Not Mandatory)
         APIToken (Not Mandatory)
-        end_time (Not Mandatory)
+        EndTime (Not Mandatory)
         Resolution (Not Mandatory)
-        Start_Time (Not Mandatory)
+        StartTime (Not Mandatory)
         Type (Not Mandatory)
                         
 .OUTPUTS
@@ -1265,12 +1276,13 @@ function Get-PfbArrayPerformance()
         PS> Get-PfbArrayPerformance
         PS> Get-PfbArrayPerformance -Protocol 'nfs'
         PS> Get-PfbArrayPerformance -Protocol 'nfs' -Type 'file-system'
+        PS> Get-PfbArrayPerformance -Replication 1
 .INPUTS
         FlashBlade (Not Mandatory)
         APIToken (Not Mandatory)
         end_time (Not Mandatory)
         Resolution (Not Mandatory)
-        start_time (Not Mandatory)
+        StartTime (Not Mandatory)
         Protocol (Not Mandatory)
         Type (Not Mandatory)
                         
@@ -1303,6 +1315,7 @@ Param(
   [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][int32] $Resolution,
   [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][long] $StartTime,
   [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $Protocol = $null,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][bool] $Replication,
   [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $Type = $null
 )
 if (!$FlashBlade) {
@@ -1319,7 +1332,12 @@ if ($SkipCertificateCheck -eq 'true') {
         $skipcert=$True
 }
 
-        $url = "/api/$ApiVers/arrays/performance"; 
+if ($Replication -eq 'true') {
+        $url = "/api/$ApiVers/arrays/performance/replication"; 
+} else {
+        $url = "/api/$ApiVers/arrays/performance";
+}
+
         $link = "https://$FlashBlade$url";
         $uri = [System.Web.HttpUtility]::ParseQueryString([String]::Empty)
 
@@ -1510,14 +1528,17 @@ function Get-PfbArrayHttpSpecificPerformance()
 .EXAMPLE
         PS> Get-PfbArrayHttpSpecificPerformance
         List the array's historical HTTP performance metrics with a specific start time and end_time
-        PS> Get-PfbArrayHttpSpecificPerformance -start_time '1497398400000' -end_time '1510684860000' -Resolution '30000'
+        PS> Get-PfbArrayHttpSpecificPerformance -StartTime '1497398400000' -end_time '1510684860000' -Resolution '30000'
 .INPUTS
         FlashBlade (Not Mandatory)
         APIToken (Not Mandatory)
-        end_time (Not Mandatory)
-        Resolution (Not Mandatory)
-        start_time (Not Mandatory)
-        Type (Not Mandatory)
+        Names (Not Mandatory)
+        IDs (Not Mandatory)
+        Filter (Not Mandatory)
+        Limit (Not Mandatory)
+        Sort (Not Mandatory)
+        StartTime (Not Mandatory)
+        Token (Not Mandatory)
                         
 .OUTPUTS
         HTTP Performance response       
@@ -1631,7 +1652,7 @@ function Get-PfbArrayS3SpecificPerformance()
         APIToken (Not Mandatory)
         end_time (Not Mandatory)
         Resolution (Not Mandatory)
-        start_time (Not Mandatory)
+        StartTime (Not Mandatory)
         Type (Not Mandatory)
                         
 .OUTPUTS
@@ -1690,6 +1711,1050 @@ if ($SkipCertificateCheck -eq 'true') {
         }
         if ($Type) {$
                 Body.Add('Type' , $Type)
+        }
+
+        $request = [System.UriBuilder]$link
+        $request.Query = $uri.ToString()
+
+        $params = @{
+                SkipCertificateCheck = $skipcert
+                Method  = 'GET' 
+                Headers = @{ 'x-auth-token' = $(Get-InternalPfbAuthToken)} 
+                Uri = $request.Uri
+                Body = (ConvertTo-JSON $body) 
+                ContentType = 'application/json'       
+        } 
+        
+                if ($DEBUG) { write-host $request.Uri };
+                if ($DEBUG) { write-host @params };
+        
+                try {
+                        $obj = Invoke-RestMethod @params
+                        $Items = $obj.items;
+                        if ($DEBUG) {Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand)};
+                        if ($DEBUG) {Write-Host '---------------------------------------------------'};
+                        return $Items;
+                }
+                catch [System.Net.Http.HttpRequestException] {
+                        $Request = $_.Exception
+                        Write-host "Error trying to connect to $FlashBlade "
+                        Get-InternalHTTPError;
+                }
+                catch {
+                        $Request = $_.Exception
+                        Write-host "Catchall Exception caught: $Request"
+                        Get-InternalCatchAllError;
+                }
+                Finally { 
+                        $Token = $(Get-InternalPfbAuthToken);
+                        Get-InternalPfbAuthTokenLogout $Token;
+                }
+}
+
+function Get-PfbArrayConnections()
+{
+<#
+.SYNOPSIS
+        Lists array connections
+.DESCRIPTION
+        Helper function
+        This function lists FlashBlade Array connections 
+        Minimum API Version = 1.9
+.EXAMPLE
+        PS> Get-PfbArrayConnections
+.INPUTS
+        FlashBlade (Not Mandatory)
+        APIToken (Not Mandatory)
+                        
+.OUTPUTS
+        Arrays response       
+        name
+        id
+        ca_certificate_group
+                name
+                resource_Type
+                id
+        management_address
+        replication_addresses
+        status
+        encrypted
+        version
+                
+.NOTES
+        Tested 
+        Minimum APIVersion = 1.9                                       
+#>
+[CmdletBinding()]
+Param(
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $FlashBlade,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $ApiToken,  
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $SkipCertificateCheck =$null,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $Filter = $null,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $Ids = $null,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][int64]  $Limit,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $Names = $null,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $Sort = $null,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][Int64]  $Start ,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $token = $null
+)
+if (!$FlashBlade) {
+        $myreturn = $(Get-InternalPfbJson);
+        $FlashBlade = $myreturn[0]
+        $ApiToken = $myreturn[1]
+        $ApiVers = $myreturn[2]
+        $SkipCertificateCheck = $myreturn[3]
+};
+
+$MinAPIVers = 1.9
+Test-APIVersion ($ApiVers, $MinAPIVers)
+
+if ($SkipCertificateCheck -eq 'true') {
+        $PSDefaultParameterValues=@("Invoke-RestMethod:SkipCertificateCheck",$true)
+        if ($DEBUG) {write-host "Skipping the Certificate Check $SkipCertificateCheck"}
+        $skipcert=$True
+}
+
+        $url = "/api/$ApiVers/array-connections";
+        $link = "https://$FlashBlade$url";
+        $uri = [System.Web.HttpUtility]::ParseQueryString([String]::Empty)
+
+        if ($Names) {
+                $uri.Add('names', $Names)
+        }
+        if ($Ids) {
+                $uri.Add('ids', $Ids)
+        }
+        if ($Filter) {
+                $uri.Add('filter', $Filter)
+        }
+        if ($Sort) {
+                $uri.Add('sort' , $Sort)
+        }
+        if ($Start) {
+                $uri.Add('start' , $Start)
+        }
+        if ($Limit) {
+                $uri.Add('limit' , $Limit)
+        }
+        if ($Token) {
+                $uri.Add('token' , $Token)
+        }
+
+        $request = [System.UriBuilder]$link
+        $request.Query = $uri.ToString()
+
+        $params = @{
+                SkipCertificateCheck = $skipcert
+                Method  = 'GET' 
+                Headers = @{ 'x-auth-token' = $(Get-InternalPfbAuthToken)} 
+                Uri = $request.Uri
+                Body = (ConvertTo-JSON $body) 
+                ContentType = 'application/json'       
+        } 
+        
+                if ($DEBUG) { write-host $request.Uri };
+                if ($DEBUG) { write-host @params };
+        
+                try {
+                        $obj = Invoke-RestMethod @params
+                        $Items = $obj.items;
+                        if ($DEBUG) {Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand)};
+                        if ($DEBUG) {Write-Host '---------------------------------------------------'};
+                        return $Items;
+                }
+                catch [System.Net.Http.HttpRequestException] {
+                        $Request = $_.Exception
+                        Write-host "Error trying to connect to $FlashBlade "
+                        Get-InternalHTTPError;
+                }
+                catch {
+                        $Request = $_.Exception
+                        Write-host "Catchall Exception caught: $Request"
+                        Get-InternalCatchAllError;
+                }
+                Finally { 
+                        $Token = $(Get-InternalPfbAuthToken);
+                        Get-InternalPfbAuthTokenLogout $Token;
+                }
+}
+
+function Update-PfbArrayConnections()
+{
+<#
+.SYNOPSIS
+        Modifies attributes of the Arrays Connections
+.DESCRIPTION
+        Helper function
+        This function modifies the arrays replication connections
+.EXAMPLE
+        PS> Update-PfbArrayConnections -Names '<name of array>' -InputFile <name of JSON input file>
+.INPUTS
+        FlashBlade (Not Mandatory)
+        APIToken (Not Mandatory)
+        Names (Not Mandatory)
+        IDs (Not Mandatory)
+        InputFile (Mandatory)
+                        
+.OUTPUTS
+        Response       
+        name
+        id
+        ca_certificate_group
+                name
+                resource_Type
+                id
+        management_address
+        replication_addresses
+        status
+        encrypted
+        version      
+.NOTES
+        Not Tested     
+        Requires APIVers = 1.9                                   
+#>
+[CmdletBinding()]
+Param(
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $FlashBlade,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $ApiToken,
+  [Parameter(Mandatory=$TRUE)][ValidateNotNullOrEmpty()][string] $InputFile,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $SkipCertificateCheck =$null,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $Names = $null,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $Ids = $null
+)
+if (!$FlashBlade) {
+        $myreturn = $(Get-InternalPfbJson);
+        $FlashBlade = $myreturn[0]
+        $ApiToken = $myreturn[1]
+        $ApiVers = $myreturn[2]
+        $SkipCertificateCheck = $myreturn[3]
+}
+
+if ($SkipCertificateCheck -eq 'true') {
+        $PSDefaultParameterValues=@("Invoke-RestMethod:SkipCertificateCheck",$true)
+        if ($DEBUG) {write-host "Skipping the Certificate Check $SkipCertificateCheck"}
+        $skipcert=$True
+}
+
+if ($InputFile) { 
+        $body = Get-Content -Raw $InputFile | out-string | ConvertFrom-Json -AsHashtable;
+} else {
+        $body = (ConvertFrom-Json $Attributes -AsHashtable);
+}
+
+        $url = "/api/$ApiVers/array-connections";
+        $link = "https://$FlashBlade$url";    
+        $uri = [System.Web.HttpUtility]::ParseQueryString([String]::Empty)    
+        
+        if ($Names) {
+                $uri.Add('names', $Names)
+        }
+        if ($Ids) {
+                $uri.Add('ids', $Ids)
+        }
+
+
+        $request = [System.UriBuilder]$link
+        $request.Query = $uri.ToString()
+
+        $params = @{
+                SkipCertificateCheck = $skipcert
+                Method  = 'PATCH' 
+                Headers = @{ 'x-auth-token' = $(Get-InternalPfbAuthToken)} 
+                Uri = $request.Uri
+                Body = (ConvertTo-JSON $body) 
+                ContentType = 'application/json'       
+        } 
+        
+                if ($DEBUG) { write-host $request.Uri };
+                if ($DEBUG) { write-host @params };
+        
+                try {
+                        $obj = Invoke-RestMethod @params
+                        $Items = $obj.items;
+                        if ($DEBUG) {Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand)};
+                        if ($DEBUG) {Write-Host '---------------------------------------------------'};
+                        return $Items;
+                }
+                catch [System.Net.Http.HttpRequestException] {
+                        $Request = $_.Exception
+                        Write-host "Error trying to connect to $FlashBlade "
+                        Get-InternalHTTPError;
+                }
+                catch {
+                        $Request = $_.Exception
+                        Write-host "Catchall Exception caught: $Request"
+                        Get-InternalCatchAllError;
+                }
+                Finally { 
+                        $Token = $(Get-InternalPfbAuthToken);
+                        Get-InternalPfbAuthTokenLogout $Token;
+                }
+}
+
+function Add-PfbArrayConnections()
+{
+<#
+.SYNOPSIS
+        Add a FlashBlade Array Replication Connection
+.DESCRIPTION
+        Helper function
+        This function Adds a FlashBlade Array Replication Connection
+.EXAMPLE
+        PS> Add-PfbArrayConnections -Names '<name of array>' -InputFile <name of JSON input file>
+.INPUTS
+        FlashBlade (Not Mandatory)
+        APIToken (Not Mandatory)
+        Names (Not Mandatory)
+        IDs (Not Mandatory)
+        InputFile (Mandatory)
+                        
+.OUTPUTS
+        Response       
+        name
+        id
+        ca_certificate_group
+                name
+                resource_Type
+                id
+        management_address
+        replication_addresses
+        status
+        encrypted
+        version      
+.NOTES
+        Not Tested     
+        Requires APIVers = 1.9                                   
+#>
+[CmdletBinding()]
+Param(
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $FlashBlade,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $ApiToken,
+  [Parameter(Mandatory=$TRUE)][ValidateNotNullOrEmpty()][string] $InputFile,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $SkipCertificateCheck =$null,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $Names = $null,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $Ids = $null
+)
+if (!$FlashBlade) {
+        $myreturn = $(Get-InternalPfbJson);
+        $FlashBlade = $myreturn[0]
+        $ApiToken = $myreturn[1]
+        $ApiVers = $myreturn[2]
+        $SkipCertificateCheck = $myreturn[3]
+}
+
+if ($SkipCertificateCheck -eq 'true') {
+        $PSDefaultParameterValues=@("Invoke-RestMethod:SkipCertificateCheck",$true)
+        if ($DEBUG) {write-host "Skipping the Certificate Check $SkipCertificateCheck"}
+        $skipcert=$True
+}
+
+if ($InputFile) { 
+        $body = Get-Content -Raw $InputFile | out-string | ConvertFrom-Json -AsHashtable;
+} else {
+        $body = (ConvertFrom-Json $Attributes -AsHashtable);
+}
+
+        $url = "/api/$ApiVers/array-connections";
+        $link = "https://$FlashBlade$url";    
+        $uri = [System.Web.HttpUtility]::ParseQueryString([String]::Empty)    
+        
+        if ($Names) {
+                $uri.Add('names', $Names)
+        }
+        if ($Ids) {
+                $uri.Add('ids', $Ids)
+        }
+
+
+        $request = [System.UriBuilder]$link
+        $request.Query = $uri.ToString()
+
+        $params = @{
+                SkipCertificateCheck = $skipcert
+                Method  = 'POST' 
+                Headers = @{ 'x-auth-token' = $(Get-InternalPfbAuthToken)} 
+                Uri = $request.Uri
+                Body = (ConvertTo-JSON $body) 
+                ContentType = 'application/json'       
+        } 
+        
+                if ($DEBUG) { write-host $request.Uri };
+                if ($DEBUG) { write-host @params };
+        
+                try {
+                        $obj = Invoke-RestMethod @params
+                        $Items = $obj.items;
+                        if ($DEBUG) {Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand)};
+                        if ($DEBUG) {Write-Host '---------------------------------------------------'};
+                        return $Items;
+                }
+                catch [System.Net.Http.HttpRequestException] {
+                        $Request = $_.Exception
+                        Write-host "Error trying to connect to $FlashBlade "
+                        Get-InternalHTTPError;
+                }
+                catch {
+                        $Request = $_.Exception
+                        Write-host "Catchall Exception caught: $Request"
+                        Get-InternalCatchAllError;
+                }
+                Finally { 
+                        $Token = $(Get-InternalPfbAuthToken);
+                        Get-InternalPfbAuthTokenLogout $Token;
+                }
+}
+
+function Remove-PfbArrayConnections()
+{
+<#
+.SYNOPSIS
+        Deletes a FlashBlade Array Replication Connection
+.DESCRIPTION
+        Helper function
+        This function Deletes a FlashBlade Array Replication Connection
+.EXAMPLE
+        PS> Remove-PfbArrayConnections -Names '<name of array>' 
+.INPUTS
+        FlashBlade (Not Mandatory)
+        APIToken (Not Mandatory)
+        Names (Not Mandatory)
+        IDs (Not Mandatory)
+                        
+.OUTPUTS
+        Response       
+    
+.NOTES
+        Not Tested     
+        Requires APIVers = 1.9                                   
+#>
+[CmdletBinding()]
+Param(
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $FlashBlade,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $ApiToken,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $SkipCertificateCheck =$null,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $Names = $null,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $Ids = $null
+)
+if (!$FlashBlade) {
+        $myreturn = $(Get-InternalPfbJson);
+        $FlashBlade = $myreturn[0]
+        $ApiToken = $myreturn[1]
+        $ApiVers = $myreturn[2]
+        $SkipCertificateCheck = $myreturn[3]
+}
+
+if ($SkipCertificateCheck -eq 'true') {
+        $PSDefaultParameterValues=@("Invoke-RestMethod:SkipCertificateCheck",$true)
+        if ($DEBUG) {write-host "Skipping the Certificate Check $SkipCertificateCheck"}
+        $skipcert=$True
+}
+
+if ($InputFile) { 
+        $body = Get-Content -Raw $InputFile | out-string | ConvertFrom-Json -AsHashtable;
+} else {
+        $body = (ConvertFrom-Json $Attributes -AsHashtable);
+}
+
+        $url = "/api/$ApiVers/array-connections";
+        $link = "https://$FlashBlade$url";    
+        $uri = [System.Web.HttpUtility]::ParseQueryString([String]::Empty)    
+        
+        if ($Names) {
+                $uri.Add('names', $Names)
+        }
+        if ($Ids) {
+                $uri.Add('ids', $Ids)
+        }
+
+
+        $request = [System.UriBuilder]$link
+        $request.Query = $uri.ToString()
+
+        $params = @{
+                SkipCertificateCheck = $skipcert
+                Method  = 'DELETE' 
+                Headers = @{ 'x-auth-token' = $(Get-InternalPfbAuthToken)} 
+                Uri = $request.Uri
+                Body = (ConvertTo-JSON $body) 
+                ContentType = 'application/json'       
+        } 
+        
+                if ($DEBUG) { write-host $request.Uri };
+                if ($DEBUG) { write-host @params };
+        
+                try {
+                        $obj = Invoke-RestMethod @params
+                        $Items = $obj.items;
+                        if ($DEBUG) {Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand)};
+                        if ($DEBUG) {Write-Host '---------------------------------------------------'};
+                        return $Items;
+                }
+                catch [System.Net.Http.HttpRequestException] {
+                        $Request = $_.Exception
+                        Write-host "Error trying to connect to $FlashBlade "
+                        Get-InternalHTTPError;
+                }
+                catch {
+                        $Request = $_.Exception
+                        Write-host "Catchall Exception caught: $Request"
+                        Get-InternalCatchAllError;
+                }
+                Finally { 
+                        $Token = $(Get-InternalPfbAuthToken);
+                        Get-InternalPfbAuthTokenLogout $Token;
+                }
+}
+
+function Get-PfbArrayConnectionsConnectionKey()
+{
+<#
+.SYNOPSIS
+        Lists array connections connections key
+.DESCRIPTION
+        Helper function
+        This function lists FlashBlade Array connections connections keys
+        Minimum API Version = 1.9
+.EXAMPLE
+        PS> Get-PfbArrayConnectionsConnectionsKey
+.INPUTS
+        FlashBlade (Not Mandatory)
+        APIToken (Not Mandatory)
+                        
+.OUTPUTS
+        Arrays response       
+        connection_key
+        created
+        expires
+                
+.NOTES
+        Tested 
+        Minimum APIVersion = 1.9                                       
+#>
+[CmdletBinding()]
+Param(
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $FlashBlade,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $ApiToken,  
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $SkipCertificateCheck =$null
+)
+if (!$FlashBlade) {
+        $myreturn = $(Get-InternalPfbJson);
+        $FlashBlade = $myreturn[0]
+        $ApiToken = $myreturn[1]
+        $ApiVers = $myreturn[2]
+        $SkipCertificateCheck = $myreturn[3]
+};
+
+$MinAPIVers = 1.9
+Test-APIVersion ($ApiVers, $MinAPIVers)
+
+if ($SkipCertificateCheck -eq 'true') {
+        $PSDefaultParameterValues=@("Invoke-RestMethod:SkipCertificateCheck",$true)
+        if ($DEBUG) {write-host "Skipping the Certificate Check $SkipCertificateCheck"}
+        $skipcert=$True
+}
+
+        $url = "/api/$ApiVers/array-connections/connection-key";
+        $link = "https://$FlashBlade$url";
+        $uri = [System.Web.HttpUtility]::ParseQueryString([String]::Empty)
+
+        $request = [System.UriBuilder]$link
+        $request.Query = $uri.ToString()
+
+        $params = @{
+                SkipCertificateCheck = $skipcert
+                Method  = 'GET' 
+                Headers = @{ 'x-auth-token' = $(Get-InternalPfbAuthToken)} 
+                Uri = $request.Uri
+                Body = (ConvertTo-JSON $body) 
+                ContentType = 'application/json'       
+        } 
+        
+                if ($DEBUG) { write-host $request.Uri };
+                if ($DEBUG) { write-host @params };
+        
+                try {
+                        $obj = Invoke-RestMethod @params
+                        $Items = $obj.items;
+                        if ($DEBUG) {Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand)};
+                        if ($DEBUG) {Write-Host '---------------------------------------------------'};
+                        return $Items;
+                }
+                catch [System.Net.Http.HttpRequestException] {
+                        $Request = $_.Exception
+                        Write-host "Error trying to connect to $FlashBlade "
+                        Get-InternalHTTPError;
+                }
+                catch {
+                        $Request = $_.Exception
+                        Write-host "Catchall Exception caught: $Request"
+                        Get-InternalCatchAllError;
+                }
+                Finally { 
+                        $Token = $(Get-InternalPfbAuthToken);
+                        Get-InternalPfbAuthTokenLogout $Token;
+                }
+}
+
+function Add-PfbArrayConnectionsConnectionKey()
+{
+<#
+.SYNOPSIS
+        Add an array connections key for a replication target
+.DESCRIPTION
+        Helper function
+        This function adds an array connections key for a replication target
+.DESCRIPTION
+        Minimum API Version = 1.9
+.EXAMPLE
+        PS> Add-PfbArrayConnectionsConnectionsKey 
+.INPUTS
+        FlashBlade (Not Mandatory)
+        APIToken (Not Mandatory)
+                        
+.OUTPUTS
+        Arrays response       
+        connection_key
+        created
+        expires
+                
+.NOTES
+        Tested 
+        Minimum APIVersion = 1.9                                       
+#>
+[CmdletBinding()]
+Param(
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $FlashBlade,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $ApiToken,  
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $SkipCertificateCheck =$null
+)
+if (!$FlashBlade) {
+        $myreturn = $(Get-InternalPfbJson);
+        $FlashBlade = $myreturn[0]
+        $ApiToken = $myreturn[1]
+        $ApiVers = $myreturn[2]
+        $SkipCertificateCheck = $myreturn[3]
+};
+
+$MinAPIVers = 1.9
+Test-APIVersion ($ApiVers, $MinAPIVers)
+
+if ($SkipCertificateCheck -eq 'true') {
+        $PSDefaultParameterValues=@("Invoke-RestMethod:SkipCertificateCheck",$true)
+        if ($DEBUG) {write-host "Skipping the Certificate Check $SkipCertificateCheck"}
+        $skipcert=$True
+}
+
+        $url = "/api/$ApiVers/array-connections/connection-key";
+        $link = "https://$FlashBlade$url";
+        $uri = [System.Web.HttpUtility]::ParseQueryString([String]::Empty)
+
+        $request = [System.UriBuilder]$link
+        $request.Query = $uri.ToString()
+
+        $params = @{
+                SkipCertificateCheck = $skipcert
+                Method  = 'POST' 
+                Headers = @{ 'x-auth-token' = $(Get-InternalPfbAuthToken)} 
+                Uri = $request.Uri
+                Body = (ConvertTo-JSON $body) 
+                ContentType = 'application/json'       
+        } 
+        
+                if ($DEBUG) { write-host $request.Uri };
+                if ($DEBUG) { write-host @params };
+        
+                try {
+                        $obj = Invoke-RestMethod @params
+                        $Items = $obj.items;
+                        if ($DEBUG) {Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand)};
+                        if ($DEBUG) {Write-Host '---------------------------------------------------'};
+                        return $Items;
+                }
+                catch [System.Net.Http.HttpRequestException] {
+                        $Request = $_.Exception
+                        Write-host "Error trying to connect to $FlashBlade "
+                        Get-InternalHTTPError;
+                }
+                catch {
+                        $Request = $_.Exception
+                        Write-host "Catchall Exception caught: $Request"
+                        Get-InternalCatchAllError;
+                }
+                Finally { 
+                        $Token = $(Get-InternalPfbAuthToken);
+                        Get-InternalPfbAuthTokenLogout $Token;
+                }
+}
+
+function Get-PfbArrayConnectionsPath()
+{
+<#
+.SYNOPSIS
+        Lists array connections path
+.DESCRIPTION
+        Helper function
+        This function lists FlashBlade Array connections 
+        Minimum API Version = 1.9
+.EXAMPLE
+        PS> Get-PfbArrayConnectionsPath
+        PS> Get-PfbArrayConnectionsPath -Names 'fb2'
+.INPUTS
+        FlashBlade (Not Mandatory)
+        APIToken (Not Mandatory)
+        Names (Not Mandatory)
+        IDs (Not Mandatory)
+                        
+.OUTPUTS
+        Arrays response       
+        remote
+                name
+                id
+        id
+        source
+        destination
+        status
+        status_details
+                
+.NOTES
+        Tested 
+        Minimum APIVersion = 1.9                                       
+#>
+[CmdletBinding()]
+Param(
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $FlashBlade,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $ApiToken,  
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $SkipCertificateCheck =$null,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $Ids = $null,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $Names = $null
+)
+if (!$FlashBlade) {
+        $myreturn = $(Get-InternalPfbJson);
+        $FlashBlade = $myreturn[0]
+        $ApiToken = $myreturn[1]
+        $ApiVers = $myreturn[2]
+        $SkipCertificateCheck = $myreturn[3]
+};
+
+$MinAPIVers = 1.9
+Test-APIVersion ($ApiVers, $MinAPIVers)
+
+if ($SkipCertificateCheck -eq 'true') {
+        $PSDefaultParameterValues=@("Invoke-RestMethod:SkipCertificateCheck",$true)
+        if ($DEBUG) {write-host "Skipping the Certificate Check $SkipCertificateCheck"}
+        $skipcert=$True
+}
+
+        $url = "/api/$ApiVers/array-connections/path";
+        $link = "https://$FlashBlade$url";
+        $uri = [System.Web.HttpUtility]::ParseQueryString([String]::Empty)
+
+        if ($Names) {
+                $uri.Add('names', $Names)
+        }
+        if ($Ids) {
+                $uri.Add('ids', $Ids)
+        }
+
+        $request = [System.UriBuilder]$link
+        $request.Query = $uri.ToString()
+
+        $params = @{
+                SkipCertificateCheck = $skipcert
+                Method  = 'GET' 
+                Headers = @{ 'x-auth-token' = $(Get-InternalPfbAuthToken)} 
+                Uri = $request.Uri
+                Body = (ConvertTo-JSON $body) 
+                ContentType = 'application/json'       
+        } 
+        
+                if ($DEBUG) { write-host $request.Uri };
+                if ($DEBUG) { write-host @params };
+        
+                try {
+                        $obj = Invoke-RestMethod @params
+                        $Items = $obj.items;
+                        if ($DEBUG) {Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand)};
+                        if ($DEBUG) {Write-Host '---------------------------------------------------'};
+                        return $Items;
+                }
+                catch [System.Net.Http.HttpRequestException] {
+                        $Request = $_.Exception
+                        Write-host "Error trying to connect to $FlashBlade "
+                        Get-InternalHTTPError;
+                }
+                catch {
+                        $Request = $_.Exception
+                        Write-host "Catchall Exception caught: $Request"
+                        Get-InternalCatchAllError;
+                }
+                Finally { 
+                        $Token = $(Get-InternalPfbAuthToken);
+                        Get-InternalPfbAuthTokenLogout $Token;
+                }
+}
+
+function Get-PfbArrayConnectionsPerformanceReplication()
+{
+<#
+.SYNOPSIS
+        Lists array connections replication performance
+.DESCRIPTION
+        Helper function
+        This function lists FlashBlade Array connections replication performance
+        Minimum API Version = 1.9
+.EXAMPLE
+        PS> Get-PfbArrayConnectionsPerformanceReplication
+        PS> Get-PfbArrayCPR -StartTime '16 January 2020 21:00:00' -Resolution 30000
+.INPUTS
+        FlashBlade (Not Mandatory)
+        APIToken (Not Mandatory)
+        endtime
+        filter
+        ids
+        limit
+        remote_ids
+        remote_names
+        resolution
+        sort
+        start
+        StartTime
+        token
+        total_only
+        type                
+.OUTPUTS
+        Arrays response       
+        total
+                name
+                id
+                async
+                        received_bytes_per_sec
+                        transmitted_bytes_per_sec
+                time
+        name
+        id
+        async
+                received_bytes_per_sec
+                transmitted_bytes_per_sec
+        time
+                
+.NOTES
+        Tested 
+        Minimum APIVersion = 1.9                                       
+#>
+[CmdletBinding()]
+Param(
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $FlashBlade,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $ApiToken,  
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $SkipCertificateCheck =$null,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string]  $EndTime,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $Filter = $null,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $Ids = $null,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $Names = $null,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][int64]  $Limit,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $Remote_Ids = $null,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $Remote_Names = $null,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][int64] $Resolution,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $Sort = $null,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][Int64]  $Start ,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string]  $StartTime ,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $Token = $null,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][bool] $Total_Only ,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $Type = $null
+)
+if (!$FlashBlade) {
+        $myreturn = $(Get-InternalPfbJson);
+        $FlashBlade = $myreturn[0]
+        $ApiToken = $myreturn[1]
+        $ApiVers = $myreturn[2]
+        $SkipCertificateCheck = $myreturn[3]
+};
+
+$MinAPIVers = 1.9
+Test-APIVersion ($ApiVers, $MinAPIVers)
+
+if ($SkipCertificateCheck -eq 'true') {
+        $PSDefaultParameterValues=@("Invoke-RestMethod:SkipCertificateCheck",$true)
+        if ($DEBUG) {write-host "Skipping the Certificate Check $SkipCertificateCheck"}
+        $skipcert=$True
+}
+
+        $url = "/api/$ApiVers/array-connections/performance/replication";
+        $link = "https://$FlashBlade$url";
+        $uri = [System.Web.HttpUtility]::ParseQueryString([String]::Empty)
+
+        if ($Names) {
+                $uri.Add('names', $Names)
+        }
+        if ($Ids) {
+                $uri.Add('ids', $Ids)
+        }
+        if ($Filter) {
+                $uri.Add('filter', $Filter)
+        }
+        if ($Sort) {
+                $uri.Add('sort' , $Sort)
+        }
+        if ($Start) {
+                $uri.Add('start' , $Start)
+        }
+        if ($Limit) {
+                $uri.Add('limit' , $Limit)
+        }
+        if ($Token) {
+                $uri.Add('token' , $Token)
+        }
+        if ($Type) {
+                $uri.Add('type' , $Type)
+        }
+        if ($Total_Only) {
+                $uri.Add('total_only' , $Total_Only)
+        }
+        if ($EndTime) {
+                $uri.Add('end_time' , $EndTime)
+        }
+        if ($StartTime) {
+                $uri.Add('start_time' , (Get-PfbDateSinceEpoc -MyDate ($StartTime)))
+        }
+        if ($Remote_Ids) {
+                $uri.Add('remote_ids' , $Remote_Ids)
+        }
+        if ($Remote_Names) {
+                $uri.Add('remote_names' , $Remote_Names)
+        }
+        if ($Resolution) {
+                $uri.Add('resolution' , $Resolution)
+        }
+
+        $request = [System.UriBuilder]$link
+        $request.Query = $uri.ToString()
+
+        $params = @{
+                SkipCertificateCheck = $skipcert
+                Method  = 'GET' 
+                Headers = @{ 'x-auth-token' = $(Get-InternalPfbAuthToken)} 
+                Uri = $request.Uri
+                Body = (ConvertTo-JSON $body) 
+                ContentType = 'application/json'       
+        } 
+        
+                if ($DEBUG) { write-host $request.Uri };
+                if ($DEBUG) { write-host @params };
+        
+                try {
+                        $obj = Invoke-RestMethod @params
+                        $Items = $obj.items;
+                        if ($DEBUG) {Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand)};
+                        if ($DEBUG) {Write-Host '---------------------------------------------------'};
+                        return $Items;
+                }
+                catch [System.Net.Http.HttpRequestException] {
+                        $Request = $_.Exception
+                        Write-host "Error trying to connect to $FlashBlade "
+                        Get-InternalHTTPError;
+                }
+                catch {
+                        $Request = $_.Exception
+                        Write-host "Catchall Exception caught: $Request"
+                        Get-InternalCatchAllError;
+                }
+                Finally { 
+                        $Token = $(Get-InternalPfbAuthToken);
+                        Get-InternalPfbAuthTokenLogout $Token;
+                }
+}
+
+
+function Get-PfbAudits()
+{
+<#
+.SYNOPSIS
+        Lists array audit trail
+.DESCRIPTION
+        Helper function
+        This function lists FlashBlade Array audit trail 
+        Minimum API Version = 1.9
+.EXAMPLE
+        PS> Get-PfbAudits
+.INPUTS
+        FlashBlade (Not Mandatory)
+        APIToken (Not Mandatory)
+        Filter
+        Ids
+        Names
+        Sort
+        Start
+        Token                
+.OUTPUTS
+        Arrays response       
+        arguments
+        command
+        ip_address
+        name
+        subcommand
+        time
+        user
+        user_agent
+        user_interface
+        id
+                
+.NOTES
+        Tested 
+        Minimum APIVersion = 1.9                                       
+#>
+[CmdletBinding()]
+Param(
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $FlashBlade,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $ApiToken,  
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $SkipCertificateCheck =$null,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $Filter = $null,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $Ids = $null,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][int64]  $Limit,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $Names = $null,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $Sort = $null,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][Int64]  $Start ,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $token = $null
+)
+if (!$FlashBlade) {
+        $myreturn = $(Get-InternalPfbJson);
+        $FlashBlade = $myreturn[0]
+        $ApiToken = $myreturn[1]
+        $ApiVers = $myreturn[2]
+        $SkipCertificateCheck = $myreturn[3]
+};
+
+$MinAPIVers = 1.9
+Test-APIVersion ($ApiVers, $MinAPIVers)
+
+if ($SkipCertificateCheck -eq 'true') {
+        $PSDefaultParameterValues=@("Invoke-RestMethod:SkipCertificateCheck",$true)
+        if ($DEBUG) {write-host "Skipping the Certificate Check $SkipCertificateCheck"}
+        $skipcert=$True
+}
+
+        $url = "/api/$ApiVers/audits";
+        $link = "https://$FlashBlade$url";
+        $uri = [System.Web.HttpUtility]::ParseQueryString([String]::Empty)
+
+        if ($Names) {
+                $uri.Add('names', $Names)
+        }
+        if ($Ids) {
+                $uri.Add('ids', $Ids)
+        }
+        if ($Filter) {
+                $uri.Add('filter', $Filter)
+        }
+        if ($Sort) {
+                $uri.Add('sort' , $Sort)
+        }
+        if ($Start) {
+                $uri.Add('start' , $Start)
+        }
+        if ($Limit) {
+                $uri.Add('limit' , $Limit)
+        }
+        if ($Token) {
+                $uri.Add('token' , $Token)
         }
 
         $request = [System.UriBuilder]$link
@@ -2371,6 +3436,590 @@ Param(
                                 $Token = $(Get-InternalPfbAuthToken);
                                 Get-InternalPfbAuthTokenLogout $Token;
                         }
+}
+
+function Get-PfbBucketReplicaLinks()
+{
+<#
+.SYNOPSIS
+        Lists array S3 bucket replication links
+.DESCRIPTION
+        Helper function
+        This function lists FlashBlade s3 bucket replication links
+        Minimum API Version = 1.9
+.EXAMPLE
+        PS> Get-PfbBucketReplicaLinks
+        PS> Get-PfbBucketReplicaLinks -Local_Bucket_Names 'enron5m'
+.INPUTS
+        FlashBlade (Not Mandatory)
+        APIToken (Not Mandatory)
+        filter
+        ids
+        limit
+        local_bucket_ids
+        local_bucket_names
+        remote_ids
+        remote_names
+        resolution
+        sort
+        start
+        token
+              
+.OUTPUTS
+        Arrays response       
+        id
+        direction
+        lag
+        local_bucket
+                name
+                id
+                resource_type
+        paused
+        recovery_point
+        remote
+                name
+                id
+                resource_type
+        remote_bucket
+                name
+        remote_credentials
+                name
+                id
+                resource_type
+        status
+        status_detail
+                
+.NOTES
+        Tested 
+        Minimum APIVersion = 1.9                                       
+#>
+[CmdletBinding()]
+Param(
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $FlashBlade,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $ApiToken,  
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $SkipCertificateCheck =$null,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $Filter = $null,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $Ids = $null,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $Names = $null,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][int64]  $Limit,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $Local_Bucket_Ids = $null,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $Local_Bucket_Names = $null,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $Remote_Ids = $null,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $Remote_Names = $null,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $Sort = $null,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][Int64]  $Start ,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $Token = $null
+)
+if (!$FlashBlade) {
+        $myreturn = $(Get-InternalPfbJson);
+        $FlashBlade = $myreturn[0]
+        $ApiToken = $myreturn[1]
+        $ApiVers = $myreturn[2]
+        $SkipCertificateCheck = $myreturn[3]
+};
+
+$MinAPIVers = 1.9
+Test-APIVersion ($ApiVers, $MinAPIVers)
+
+if ($SkipCertificateCheck -eq 'true') {
+        $PSDefaultParameterValues=@("Invoke-RestMethod:SkipCertificateCheck",$true)
+        if ($DEBUG) {write-host "Skipping the Certificate Check $SkipCertificateCheck"}
+        $skipcert=$True
+}
+
+        $url = "/api/$ApiVers/bucket-replica-links";
+        $link = "https://$FlashBlade$url";
+        $uri = [System.Web.HttpUtility]::ParseQueryString([String]::Empty)
+
+        if ($Names) {
+                $uri.Add('names', $Names)
+        }
+        if ($Ids) {
+                $uri.Add('ids', $Ids)
+        }
+        if ($Filter) {
+                $uri.Add('filter', $Filter)
+        }
+        if ($Sort) {
+                $uri.Add('sort' , $Sort)
+        }
+        if ($Start) {
+                $uri.Add('start' , $Start)
+        }
+        if ($Limit) {
+                $uri.Add('limit' , $Limit)
+        }
+        if ($Token) {
+                $uri.Add('token' , $Token)
+        }
+        if ($Local_Bucket_Ids) {
+                $uri.Add('local_bucket_ids' , $Local_Bucket_Ids)
+        }
+        if ($Local_Bucket_Names) {
+                $uri.Add('local_bucket_names' , $Local_Bucket_Names)
+        }
+        if ($Remote_Ids) {
+                $uri.Add('remote_ids' , $Remote_Ids)
+        }
+        if ($Remote_Names) {
+                $uri.Add('remote_names' , $Remote_Names)
+        }
+
+        $request = [System.UriBuilder]$link
+        $request.Query = $uri.ToString()
+
+        $params = @{
+                SkipCertificateCheck = $skipcert
+                Method  = 'GET' 
+                Headers = @{ 'x-auth-token' = $(Get-InternalPfbAuthToken)} 
+                Uri = $request.Uri
+                Body = (ConvertTo-JSON $body) 
+                ContentType = 'application/json'       
+        } 
+        
+                if ($DEBUG) { write-host $request.Uri };
+                if ($DEBUG) { write-host @params };
+        
+                try {
+                        $obj = Invoke-RestMethod @params
+                        $Items = $obj.items;
+                        if ($DEBUG) {Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand)};
+                        if ($DEBUG) {Write-Host '---------------------------------------------------'};
+                        return $Items;
+                }
+                catch [System.Net.Http.HttpRequestException] {
+                        $Request = $_.Exception
+                        Write-host "Error trying to connect to $FlashBlade "
+                        Get-InternalHTTPError;
+                }
+                catch {
+                        $Request = $_.Exception
+                        Write-host "Catchall Exception caught: $Request"
+                        Get-InternalCatchAllError;
+                }
+                Finally { 
+                        $Token = $(Get-InternalPfbAuthToken);
+                        Get-InternalPfbAuthTokenLogout $Token;
+                }
+}
+
+function Add-PfbBucketReplicaLinks()
+{
+<#
+.SYNOPSIS
+        Adds array S3 bucket replication links
+.DESCRIPTION
+        Helper function
+        This function adds FlashBlade s3 bucket replication links
+        Minimum API Version = 1.9
+.EXAMPLE
+        PS> Add-PfbBucketReplicaLinks
+        PS> Add-PfbBucketReplicaLinks -Local_Bucket_Names 'enron5m'
+.INPUTS
+        FlashBlade (Not Mandatory)
+        APIToken (Not Mandatory)
+        local_bucket_ids
+        local_bucket_names
+        remote_bucket_names
+        remote_credentials_id
+        remote_credentials_names
+              
+.OUTPUTS
+        Arrays response       
+        id
+        direction
+        lag
+        local_bucket
+                name
+                id
+                resource_type
+        paused
+        recovery_point
+        remote
+                name
+                id
+                resource_type
+        remote_bucket
+                name
+        remote_credentials
+                name
+                id
+                resource_type
+        status
+        status_detail
+                
+.NOTES
+        Not Tested 
+        Minimum APIVersion = 1.9                                       
+#>
+[CmdletBinding()]
+Param(
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $FlashBlade,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $ApiToken,  
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $SkipCertificateCheck =$null,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $Local_Bucket_Ids = $null,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $Local_Bucket_Names = $null,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $Remote_Bucket_Names = $null,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $Local_Credentials_Ids = $null,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $Local_Credentials_Names = $null
+)
+if (!$FlashBlade) {
+        $myreturn = $(Get-InternalPfbJson);
+        $FlashBlade = $myreturn[0]
+        $ApiToken = $myreturn[1]
+        $ApiVers = $myreturn[2]
+        $SkipCertificateCheck = $myreturn[3]
+};
+
+$MinAPIVers = 1.9
+Test-APIVersion ($ApiVers, $MinAPIVers)
+
+if ($SkipCertificateCheck -eq 'true') {
+        $PSDefaultParameterValues=@("Invoke-RestMethod:SkipCertificateCheck",$true)
+        if ($DEBUG) {write-host "Skipping the Certificate Check $SkipCertificateCheck"}
+        $skipcert=$True
+}
+
+        $url = "/api/$ApiVers/bucket-replica-links";
+        $link = "https://$FlashBlade$url";
+        $uri = [System.Web.HttpUtility]::ParseQueryString([String]::Empty)
+
+        
+        if ($Local_Bucket_Ids) {
+                $uri.Add('local_bucket_ids' , $Local_Bucket_Ids)
+        }
+        if ($Local_Bucket_Names) {
+                $uri.Add('local_bucket_names' , $Local_Bucket_Names)
+        }
+        if ($Remote_Bucket_Names) {
+                $uri.Add('remote_bucket_names' , $Remote_Bucket_Names)
+        }
+        if ($Remote_Credentials_Ids) {
+                $uri.Add('remote_credentials_ids' , $Remote_Credentials_Ids)
+        }
+        if ($Remote_Credentials_Names) {
+                $uri.Add('remote_credentials_names' , $Remote_Credentials_Names)
+        }
+
+
+        $request = [System.UriBuilder]$link
+        $request.Query = $uri.ToString()
+
+        $params = @{
+                SkipCertificateCheck = $skipcert
+                Method  = 'POST' 
+                Headers = @{ 'x-auth-token' = $(Get-InternalPfbAuthToken)} 
+                Uri = $request.Uri
+                Body = (ConvertTo-JSON $body) 
+                ContentType = 'application/json'       
+        } 
+        
+                if ($DEBUG) { write-host $request.Uri };
+                if ($DEBUG) { write-host @params };
+        
+                try {
+                        $obj = Invoke-RestMethod @params
+                        $Items = $obj.items;
+                        if ($DEBUG) {Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand)};
+                        if ($DEBUG) {Write-Host '---------------------------------------------------'};
+                        return $Items;
+                }
+                catch [System.Net.Http.HttpRequestException] {
+                        $Request = $_.Exception
+                        Write-host "Error trying to connect to $FlashBlade "
+                        Get-InternalHTTPError;
+                }
+                catch {
+                        $Request = $_.Exception
+                        Write-host "Catchall Exception caught: $Request"
+                        Get-InternalCatchAllError;
+                }
+                Finally { 
+                        $Token = $(Get-InternalPfbAuthToken);
+                        Get-InternalPfbAuthTokenLogout $Token;
+                }
+}
+
+function Update-PfbBucketReplicaLinks()
+{
+<#
+.SYNOPSIS
+        Updates array S3 bucket replication links
+.DESCRIPTION
+        Helper function
+        This function Updates FlashBlade s3 bucket replication links
+        Minimum API Version = 1.9
+.EXAMPLE
+        PS> Update-PfbBucketReplicaLinks
+        PS> Update-PfbBucketReplicaLinks -Local_Bucket_Names 'enron5m'
+.INPUTS
+        FlashBlade (Not Mandatory)
+        APIToken (Not Mandatory)
+        ids
+        local_bucket_ids
+        local_bucket_names
+        remote_bucket_names
+        remote_ids
+        remote_names
+              
+.OUTPUTS
+        Arrays response       
+        id
+        direction
+        lag
+        local_bucket
+                name
+                id
+                resource_type
+        paused
+        recovery_point
+        remote
+                name
+                id
+                resource_type
+        remote_bucket
+                name
+        remote_credentials
+                name
+                id
+                resource_type
+        status
+        status_detail
+                
+.NOTES
+        Not Tested 
+        Minimum APIVersion = 1.9                                       
+#>
+[CmdletBinding()]
+Param(
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $FlashBlade,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $ApiToken,  
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $SkipCertificateCheck =$null,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $Ids = $null,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $Local_Bucket_Ids = $null,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $Local_Bucket_Names = $null,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $Remote_Bucket_Names = $null,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $Remote_Ids = $null,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $Remote_Names = $null
+)
+if (!$FlashBlade) {
+        $myreturn = $(Get-InternalPfbJson);
+        $FlashBlade = $myreturn[0]
+        $ApiToken = $myreturn[1]
+        $ApiVers = $myreturn[2]
+        $SkipCertificateCheck = $myreturn[3]
+};
+
+$MinAPIVers = 1.9
+Test-APIVersion ($ApiVers, $MinAPIVers)
+
+if ($SkipCertificateCheck -eq 'true') {
+        $PSDefaultParameterValues=@("Invoke-RestMethod:SkipCertificateCheck",$true)
+        if ($DEBUG) {write-host "Skipping the Certificate Check $SkipCertificateCheck"}
+        $skipcert=$True
+}
+
+        $url = "/api/$ApiVers/bucket-replica-links";
+        $link = "https://$FlashBlade$url";
+        $uri = [System.Web.HttpUtility]::ParseQueryString([String]::Empty)
+
+
+        if ($Ids) {
+                $uri.Add('ids', $Ids)
+        }
+        if ($Local_Bucket_Ids) {
+                $uri.Add('local_bucket_ids' , $Local_Bucket_Ids)
+        }
+        if ($Local_Bucket_Names) {
+                $uri.Add('local_bucket_names' , $Local_Bucket_Names)
+        }
+        if ($Remote_Ids) {
+                $uri.Add('remote_ids' , $Remote_Ids)
+        }
+        if ($Remote_Names) {
+                $uri.Add('remote_names' , $Remote_Names)
+        }
+        if ($Remote_Bucket_Names) {
+                $uri.Add('remote_bucket_names' , $Remote_Bucket_Names)
+        }
+
+        $request = [System.UriBuilder]$link
+        $request.Query = $uri.ToString()
+
+        $params = @{
+                SkipCertificateCheck = $skipcert
+                Method  = 'PATCH' 
+                Headers = @{ 'x-auth-token' = $(Get-InternalPfbAuthToken)} 
+                Uri = $request.Uri
+                Body = (ConvertTo-JSON $body) 
+                ContentType = 'application/json'       
+        } 
+        
+                if ($DEBUG) { write-host $request.Uri };
+                if ($DEBUG) { write-host @params };
+        
+                try {
+                        $obj = Invoke-RestMethod @params
+                        $Items = $obj.items;
+                        if ($DEBUG) {Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand)};
+                        if ($DEBUG) {Write-Host '---------------------------------------------------'};
+                        return $Items;
+                }
+                catch [System.Net.Http.HttpRequestException] {
+                        $Request = $_.Exception
+                        Write-host "Error trying to connect to $FlashBlade "
+                        Get-InternalHTTPError;
+                }
+                catch {
+                        $Request = $_.Exception
+                        Write-host "Catchall Exception caught: $Request"
+                        Get-InternalCatchAllError;
+                }
+                Finally { 
+                        $Token = $(Get-InternalPfbAuthToken);
+                        Get-InternalPfbAuthTokenLogout $Token;
+                }
+}
+
+function Remove-PfbBucketReplicaLinks()
+{
+<#
+.SYNOPSIS
+        Deletes array S3 bucket replication links
+.DESCRIPTION
+        Helper function
+        This function deletes FlashBlade s3 bucket replication links
+        Minimum API Version = 1.9
+.EXAMPLE
+        PS> Delete-PfbBucketReplicaLinks
+        PS> Delete-PfbBucketReplicaLinks -Local_Bucket_Names 'bucket1' -Remote_Bucket_Names 'bucket1' 
+.INPUTS
+        FlashBlade (Not Mandatory)
+        APIToken (Not Mandatory)
+        ids
+        local_bucket_ids
+        local_bucket_names
+        remote_bucket_names
+        remote_ids
+        remote_names
+              
+.OUTPUTS
+        Arrays response       
+        id
+        direction
+        lag
+        local_bucket
+                name
+                id
+                resource_type
+        paused
+        recovery_point
+        remote
+                name
+                id
+                resource_type
+        remote_bucket
+                name
+        remote_credentials
+                name
+                id
+                resource_type
+        status
+        status_detail
+                
+.NOTES
+        Not Tested 
+        Minimum APIVersion = 1.9                                       
+#>
+[CmdletBinding()]
+Param(
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $FlashBlade,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $ApiToken,  
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $SkipCertificateCheck =$null,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $Ids = $null,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $Local_Bucket_Ids = $null,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $Local_Bucket_Names = $null,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $Remote_Bucket_Names = $null,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $Remote_Ids = $null,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $Remote_Names = $null
+)
+if (!$FlashBlade) {
+        $myreturn = $(Get-InternalPfbJson);
+        $FlashBlade = $myreturn[0]
+        $ApiToken = $myreturn[1]
+        $ApiVers = $myreturn[2]
+        $SkipCertificateCheck = $myreturn[3]
+};
+
+$MinAPIVers = 1.9
+Test-APIVersion ($ApiVers, $MinAPIVers)
+
+if ($SkipCertificateCheck -eq 'true') {
+        $PSDefaultParameterValues=@("Invoke-RestMethod:SkipCertificateCheck",$true)
+        if ($DEBUG) {write-host "Skipping the Certificate Check $SkipCertificateCheck"}
+        $skipcert=$True
+}
+
+        $url = "/api/$ApiVers/bucket-replica-links";
+        $link = "https://$FlashBlade$url";
+        $uri = [System.Web.HttpUtility]::ParseQueryString([String]::Empty)
+
+
+        if ($Ids) {
+                $uri.Add('ids', $Ids)
+        }
+        if ($Local_Bucket_Ids) {
+                $uri.Add('local_bucket_ids' , $Local_Bucket_Ids)
+        }
+        if ($Local_Bucket_Names) {
+                $uri.Add('local_bucket_names' , $Local_Bucket_Names)
+        }
+        if ($Remote_Ids) {
+                $uri.Add('remote_ids' , $Remote_Ids)
+        }
+        if ($Remote_Names) {
+                $uri.Add('remote_names' , $Remote_Names)
+        }
+        if ($Remote_Bucket_Names) {
+                $uri.Add('remote_bucket_names' , $Remote_Bucket_Names)
+        }
+
+        $request = [System.UriBuilder]$link
+        $request.Query = $uri.ToString()
+
+        $params = @{
+                SkipCertificateCheck = $skipcert
+                Method  = 'DELETE' 
+                Headers = @{ 'x-auth-token' = $(Get-InternalPfbAuthToken)} 
+                Uri = $request.Uri
+                Body = (ConvertTo-JSON $body) 
+                ContentType = 'application/json'       
+        } 
+        
+                if ($DEBUG) { write-host $request.Uri };
+                if ($DEBUG) { write-host @params };
+        
+                try {
+                        $obj = Invoke-RestMethod @params
+                        $Items = $obj.items;
+                        if ($DEBUG) {Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand)};
+                        if ($DEBUG) {Write-Host '---------------------------------------------------'};
+                        return $Items;
+                }
+                catch [System.Net.Http.HttpRequestException] {
+                        $Request = $_.Exception
+                        Write-host "Error trying to connect to $FlashBlade "
+                        Get-InternalHTTPError;
+                }
+                catch {
+                        $Request = $_.Exception
+                        Write-host "Catchall Exception caught: $Request"
+                        Get-InternalCatchAllError;
+                }
+                Finally { 
+                        $Token = $(Get-InternalPfbAuthToken);
+                        Get-InternalPfbAuthTokenLogout $Token;
+                }
 }
 
 function Get-PfbBucketS3SpecificPerformance()
@@ -5545,6 +7194,728 @@ if ($SkipCertificateCheck -eq 'true') {
                         }
 }
 
+function Get-PfbFileSystemReplicaLinks()
+{
+<#
+.SYNOPSIS
+        Lists array FileSystem bucket replication links
+.DESCRIPTION
+        Helper function
+        This function lists FlashBlade FileSystem replication links
+        Minimum API Version = 1.9
+.EXAMPLE
+        PS> Get-PfbFileSystemReplicaLinks
+        PS> Get-PfbFileSystemReplicaLinks -Local_FS_Names 'fs1'
+.INPUTS
+        FlashBlade (Not Mandatory)
+        APIToken (Not Mandatory)
+        filter
+        ids
+        limit
+        local_fs_ids
+        local_fs_names
+        remote_fs_ids
+        remote_fs_names
+        remote_ids
+        remote_names
+        sort
+        start
+        token
+              
+.OUTPUTS
+        Arrays response       
+        id
+        direction
+        lag
+        recovery_point
+        local_file_system
+                name
+                id
+                resource_type
+        paused
+        remote
+                name
+                id
+                resource_type
+        remote_file_system
+                name
+                id
+        policies
+                name
+                id
+                resource_type
+        location
+                name
+                id
+                resource_type
+        is_local
+        display_name        
+        status
+        status_detail
+                
+.NOTES
+        Tested 
+        Minimum APIVersion = 1.9                                       
+#>
+[CmdletBinding()]
+Param(
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $FlashBlade,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $ApiToken,  
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $SkipCertificateCheck =$null,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $Filter = $null,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $Ids = $null,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $Names = $null,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][int64]  $Limit,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $Local_FS_Ids = $null,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $Local_FS_Names = $null,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $Remote_FS_Ids = $null,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $Remote_FS_Names = $null,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $Remote_Ids = $null,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $Remote_Names = $null,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $Sort = $null,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][Int64]  $Start ,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $Token = $null
+)
+if (!$FlashBlade) {
+        $myreturn = $(Get-InternalPfbJson);
+        $FlashBlade = $myreturn[0]
+        $ApiToken = $myreturn[1]
+        $ApiVers = $myreturn[2]
+        $SkipCertificateCheck = $myreturn[3]
+};
+
+$MinAPIVers = 1.9
+Test-APIVersion ($ApiVers, $MinAPIVers)
+
+if ($SkipCertificateCheck -eq 'true') {
+        $PSDefaultParameterValues=@("Invoke-RestMethod:SkipCertificateCheck",$true)
+        if ($DEBUG) {write-host "Skipping the Certificate Check $SkipCertificateCheck"}
+        $skipcert=$True
+}
+
+        $url = "/api/$ApiVers/file-system-replica-links";
+        $link = "https://$FlashBlade$url";
+        $uri = [System.Web.HttpUtility]::ParseQueryString([String]::Empty)
+
+        if ($Names) {
+                $uri.Add('names', $Names)
+        }
+        if ($Ids) {
+                $uri.Add('ids', $Ids)
+        }
+        if ($Filter) {
+                $uri.Add('filter', $Filter)
+        }
+        if ($Sort) {
+                $uri.Add('sort' , $Sort)
+        }
+        if ($Start) {
+                $uri.Add('start' , $Start)
+        }
+        if ($Limit) {
+                $uri.Add('limit' , $Limit)
+        }
+        if ($Token) {
+                $uri.Add('token' , $Token)
+        }
+        if ($Local_FS_Ids) {
+                $uri.Add('local_file_system_ids' , $Local_FS_Ids)
+        }
+        if ($Local_FS_Names) {
+                $uri.Add('local_file_system_names' , $Local_FS_Names)
+        }
+        if ($Remote_FS_Ids) {
+                $uri.Add('remote_file_system_ids' , $remote_FS_Ids)
+        }
+        if ($remote_FS_Names) {
+                $uri.Add('remote_file_system_names' , $remote_FS_Names)
+        }
+        if ($Remote_Ids) {
+                $uri.Add('remote_ids' , $Remote_Ids)
+        }
+        if ($Remote_Names) {
+                $uri.Add('remote_names' , $Remote_Names)
+        }
+
+        $request = [System.UriBuilder]$link
+        $request.Query = $uri.ToString()
+
+        $params = @{
+                SkipCertificateCheck = $skipcert
+                Method  = 'GET' 
+                Headers = @{ 'x-auth-token' = $(Get-InternalPfbAuthToken)} 
+                Uri = $request.Uri
+                Body = (ConvertTo-JSON $body) 
+                ContentType = 'application/json'       
+        } 
+        
+                if ($DEBUG) { write-host $request.Uri };
+                if ($DEBUG) { write-host @params };
+        
+                try {
+                        $obj = Invoke-RestMethod @params
+                        $Items = $obj.items;
+                        if ($DEBUG) {Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand)};
+                        if ($DEBUG) {Write-Host '---------------------------------------------------'};
+                        return $Items;
+                }
+                catch [System.Net.Http.HttpRequestException] {
+                        $Request = $_.Exception
+                        Write-host "Error trying to connect to $FlashBlade "
+                        Get-InternalHTTPError;
+                }
+                catch {
+                        $Request = $_.Exception
+                        Write-host "Catchall Exception caught: $Request"
+                        Get-InternalCatchAllError;
+                }
+                Finally { 
+                        $Token = $(Get-InternalPfbAuthToken);
+                        Get-InternalPfbAuthTokenLogout $Token;
+                }
+}
+
+function Add-PfbFileSystemReplicaLinks()
+{
+<#
+.SYNOPSIS
+        Adds array FileSystem replication links
+.DESCRIPTION
+        Helper function
+        This function adds FlashBlade FileSystem replication links
+        Minimum API Version = 1.9
+.EXAMPLE
+        PS> Add-PfbFileSystemReplicaLinks -Local_FS_Names 'fs1' -Remote_FS_Names 'fs12'
+.INPUTS
+        FlashBlade (Not Mandatory)
+        APIToken (Not Mandatory)
+        local_fs_ids
+        local_fs_names
+        remote_fs_ids
+        remote_fs_names
+        remote_ids
+        remote_names
+              
+.OUTPUTS
+        Arrays response       
+        id
+        direction
+        lag
+
+                
+.NOTES
+        Not Tested 
+        Minimum APIVersion = 1.9                                       
+#>
+[CmdletBinding()]
+Param(
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $FlashBlade,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $ApiToken,  
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $SkipCertificateCheck =$null,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $Local_FS_Ids = $null,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $Local_FS_Names = $null,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $Remote_FS_Ids = $null,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $Remote_FS_Names = $null,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $Remote_Ids = $null,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $Remote_Names = $null
+)
+if (!$FlashBlade) {
+        $myreturn = $(Get-InternalPfbJson);
+        $FlashBlade = $myreturn[0]
+        $ApiToken = $myreturn[1]
+        $ApiVers = $myreturn[2]
+        $SkipCertificateCheck = $myreturn[3]
+};
+
+$MinAPIVers = 1.9
+Test-APIVersion ($ApiVers, $MinAPIVers)
+
+if ($SkipCertificateCheck -eq 'true') {
+        $PSDefaultParameterValues=@("Invoke-RestMethod:SkipCertificateCheck",$true)
+        if ($DEBUG) {write-host "Skipping the Certificate Check $SkipCertificateCheck"}
+        $skipcert=$True
+}
+
+        $url = "/api/$ApiVers/file-system-replica-links";
+        $link = "https://$FlashBlade$url";
+        $uri = [System.Web.HttpUtility]::ParseQueryString([String]::Empty)
+
+        
+        if ($Local_FS_Ids) {
+                $uri.Add('local_file_system_ids' , $Local_FS_Ids)
+        }
+        if ($Local_FSames) {
+                $uri.Add('local_file_system_names' , $Local_FS_Names)
+        }
+        if ($Remote_FS_Ids) {
+                $uri.Add('remote_file_system_ids' , $Remote_FS_Ids)
+        }
+        if ($Remote_FS_Names) {
+                $uri.Add('remote_file_system_names' , $Remote_FS_Names)
+        }
+        if ($Remote_Ids) {
+                $uri.Add('remote_ids' , $Remote_Ids)
+        }
+        if ($Remote_Credentials_Names) {
+                $uri.Add('remote_names' , $Remote_Names)
+        }
+
+
+        $request = [System.UriBuilder]$link
+        $request.Query = $uri.ToString()
+
+        $params = @{
+                SkipCertificateCheck = $skipcert
+                Method  = 'POST' 
+                Headers = @{ 'x-auth-token' = $(Get-InternalPfbAuthToken)} 
+                Uri = $request.Uri
+                Body = (ConvertTo-JSON $body) 
+                ContentType = 'application/json'       
+        } 
+        
+                if ($DEBUG) { write-host $request.Uri };
+                if ($DEBUG) { write-host @params };
+        
+                try {
+                        $obj = Invoke-RestMethod @params
+                        $Items = $obj.items;
+                        if ($DEBUG) {Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand)};
+                        if ($DEBUG) {Write-Host '---------------------------------------------------'};
+                        return $Items;
+                }
+                catch [System.Net.Http.HttpRequestException] {
+                        $Request = $_.Exception
+                        Write-host "Error trying to connect to $FlashBlade "
+                        Get-InternalHTTPError;
+                }
+                catch {
+                        $Request = $_.Exception
+                        Write-host "Catchall Exception caught: $Request"
+                        Get-InternalCatchAllError;
+                }
+                Finally { 
+                        $Token = $(Get-InternalPfbAuthToken);
+                        Get-InternalPfbAuthTokenLogout $Token;
+                }
+}
+
+function Get-PfbFileSystemReplicaLinksPolicies()
+{
+<#
+.SYNOPSIS
+        Lists array FileSystem bucket replication link\ policies
+.DESCRIPTION
+        Helper function
+        This function lists FlashBlade FileSystem replication link policies
+        Minimum API Version = 1.9
+.EXAMPLE
+        PS> Get-PfbFileSystemReplicaLinksPolicies
+        PS> Get-PfbFileSystemReplicaLinksPolicies -Local_FS_Names 'fs1'
+.INPUTS
+        FlashBlade (Not Mandatory)
+        APIToken (Not Mandatory)
+        filter
+        limit
+        member_ids
+        policy_ids
+        policy_names
+        remote_ids
+        remote_names
+        remote_member_ids
+        remote_member_names
+        sort
+        start
+        token
+              
+.OUTPUTS
+        Arrays response       
+        id
+        direction
+        lag
+        recovery_point
+        local_file_system
+                name
+                id
+                resource_type
+        paused
+        remote
+                name
+                id
+                resource_type
+        remote_file_system
+                name
+                id
+        policies
+                name
+                id
+                resource_type
+        location
+                name
+                id
+                resource_type
+        is_local
+        display_name        
+        status
+        status_detail
+                
+.NOTES
+        Tested 
+        Minimum APIVersion = 1.9                                       
+#>
+[CmdletBinding()]
+Param(
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $FlashBlade,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $ApiToken,  
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $SkipCertificateCheck =$null,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $Filter = $null,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][int64]  $Limit,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $Member_Ids = $null,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $Policy_Ids = $null,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $Policy_Names = $null,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $Remote_Ids = $null,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $Remote_Names = $null,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $Remote_Member_Ids = $null,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $Remote_Member_Names = $null,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $Sort = $null,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][Int64]  $Start ,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $Token = $null
+)
+if (!$FlashBlade) {
+        $myreturn = $(Get-InternalPfbJson);
+        $FlashBlade = $myreturn[0]
+        $ApiToken = $myreturn[1]
+        $ApiVers = $myreturn[2]
+        $SkipCertificateCheck = $myreturn[3]
+};
+
+$MinAPIVers = 1.9
+Test-APIVersion ($ApiVers, $MinAPIVers)
+
+if ($SkipCertificateCheck -eq 'true') {
+        $PSDefaultParameterValues=@("Invoke-RestMethod:SkipCertificateCheck",$true)
+        if ($DEBUG) {write-host "Skipping the Certificate Check $SkipCertificateCheck"}
+        $skipcert=$True
+}
+
+        $url = "/api/$ApiVers/file-system-replica-links/policies";
+        $link = "https://$FlashBlade$url";
+        $uri = [System.Web.HttpUtility]::ParseQueryString([String]::Empty)
+
+        if ($Filter) {
+                $uri.Add('filter', $Filter)
+        }
+        if ($Limit) {
+                $uri.Add('limit' , $Limit)
+        }
+        if ($Member_Ids) {
+                $uri.Add('member_ids', $Member_Ids)
+        }
+        if ($Polciy_Ids) {
+                $uri.Add('policy_ids', $Policy_Ids)
+        }
+        if ($Policy_Names) {
+                $uri.Add('policy_names', $Policy_Names)
+        }
+        if ($Remote_Ids) {
+                $uri.Add('remote_ids', $Remote_Ids)
+        }
+        if ($Remote_Names) {
+                $uri.Add('remote_names', $Remote_Names)
+        }
+        if ($Remote_Member_Ids) {
+                $uri.Add('remote_member_ids', $Remote_Member_Ids)
+        }
+        if ($Remote_Member_Names) {
+                $uri.Add('remote_member_names', $Remote_Member_Names)
+        }
+        if ($Sort) {
+                $uri.Add('sort' , $Sort)
+        }
+        if ($Start) {
+                $uri.Add('start' , $Start)
+        }
+
+        if ($Token) {
+                $uri.Add('token' , $Token)
+        }
+
+
+        $request = [System.UriBuilder]$link
+        $request.Query = $uri.ToString()
+
+        $params = @{
+                SkipCertificateCheck = $skipcert
+                Method  = 'GET' 
+                Headers = @{ 'x-auth-token' = $(Get-InternalPfbAuthToken)} 
+                Uri = $request.Uri
+                Body = (ConvertTo-JSON $body) 
+                ContentType = 'application/json'       
+        } 
+        
+                if ($DEBUG) { write-host $request.Uri };
+                if ($DEBUG) { write-host @params };
+        
+                try {
+                        $obj = Invoke-RestMethod @params
+                        $Items = $obj.items;
+                        if ($DEBUG) {Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand)};
+                        if ($DEBUG) {Write-Host '---------------------------------------------------'};
+                        return $Items;
+                }
+                catch [System.Net.Http.HttpRequestException] {
+                        $Request = $_.Exception
+                        Write-host "Error trying to connect to $FlashBlade "
+                        Get-InternalHTTPError;
+                }
+                catch {
+                        $Request = $_.Exception
+                        Write-host "Catchall Exception caught: $Request"
+                        Get-InternalCatchAllError;
+                }
+                Finally { 
+                        $Token = $(Get-InternalPfbAuthToken);
+                        Get-InternalPfbAuthTokenLogout $Token;
+                }
+}
+
+function Add-PfbFileSystemReplicaLinksPolicies()
+{
+<#
+.SYNOPSIS
+        Adds array FileSystem replication link policies
+.DESCRIPTION
+        Helper function
+        This function lists FlashBlade FileSystem replication link policies
+        Minimum API Version = 1.9
+.EXAMPLE
+        PS> Add-PfbFileSystemReplicaLinksPolicies -Member_Names 'fs1' -Polciy_Names 'policy1' Remote_Names 'fb2'
+.INPUTS
+        FlashBlade (Not Mandatory)
+        APIToken (Not Mandatory)
+        member_ids
+        member_names
+        policy_ids
+        policy_names
+        remote_ids
+        remote_names
+              
+.OUTPUTS
+        Arrays response       
+
+                
+.NOTES
+        Not Tested 
+        Minimum APIVersion = 1.9                                       
+#>
+[CmdletBinding()]
+Param(
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $FlashBlade,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $ApiToken,  
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $SkipCertificateCheck =$null,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $Member_Ids = $null,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $Member_Names = $null,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $Policy_Ids = $null,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $Policy_Names = $null,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $Remote_Ids = $null,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $Remote_Names = $null
+)
+if (!$FlashBlade) {
+        $myreturn = $(Get-InternalPfbJson);
+        $FlashBlade = $myreturn[0]
+        $ApiToken = $myreturn[1]
+        $ApiVers = $myreturn[2]
+        $SkipCertificateCheck = $myreturn[3]
+};
+
+$MinAPIVers = 1.9
+Test-APIVersion ($ApiVers, $MinAPIVers)
+
+if ($SkipCertificateCheck -eq 'true') {
+        $PSDefaultParameterValues=@("Invoke-RestMethod:SkipCertificateCheck",$true)
+        if ($DEBUG) {write-host "Skipping the Certificate Check $SkipCertificateCheck"}
+        $skipcert=$True
+}
+
+        $url = "/api/$ApiVers/file-system-replica-links/policies";
+        $link = "https://$FlashBlade$url";
+        $uri = [System.Web.HttpUtility]::ParseQueryString([String]::Empty)
+
+        if ($Member_Ids) {
+                $uri.Add('member_ids', $Member_Ids)
+        }
+        if ($Member_Namess) {
+                $uri.Add('member_names', $Member_Names)
+        }
+        if ($Polciy_Ids) {
+                $uri.Add('policy_ids', $Policy_Ids)
+        }
+        if ($Policy_Names) {
+                $uri.Add('policy_names', $Policy_Names)
+        }
+        if ($Remote_Ids) {
+                $uri.Add('remote_ids', $Remote_Ids)
+        }
+        if ($Remote_Names) {
+                $uri.Add('remote_names', $Remote_Names)
+        }
+
+        $request = [System.UriBuilder]$link
+        $request.Query = $uri.ToString()
+
+        $params = @{
+                SkipCertificateCheck = $skipcert
+                Method  = 'POST' 
+                Headers = @{ 'x-auth-token' = $(Get-InternalPfbAuthToken)} 
+                Uri = $request.Uri
+                Body = (ConvertTo-JSON $body) 
+                ContentType = 'application/json'       
+        } 
+        
+                if ($DEBUG) { write-host $request.Uri };
+                if ($DEBUG) { write-host @params };
+        
+                try {
+                        $obj = Invoke-RestMethod @params
+                        $Items = $obj.items;
+                        if ($DEBUG) {Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand)};
+                        if ($DEBUG) {Write-Host '---------------------------------------------------'};
+                        return $Items;
+                }
+                catch [System.Net.Http.HttpRequestException] {
+                        $Request = $_.Exception
+                        Write-host "Error trying to connect to $FlashBlade "
+                        Get-InternalHTTPError;
+                }
+                catch {
+                        $Request = $_.Exception
+                        Write-host "Catchall Exception caught: $Request"
+                        Get-InternalCatchAllError;
+                }
+                Finally { 
+                        $Token = $(Get-InternalPfbAuthToken);
+                        Get-InternalPfbAuthTokenLogout $Token;
+                }
+}
+
+function Remove-PfbFileSystemReplicaLinksPolicies()
+{
+<#
+.SYNOPSIS
+        Deletes array FileSystem replication link policies
+.DESCRIPTION
+        Helper function
+        This function removes FlashBlade FileSystem replication link policies
+        Minimum API Version = 1.9
+.EXAMPLE
+        PS> Remove-PfbFileSystemReplicaLinkPolicies -Polciy_Names 'policy1'
+.INPUTS
+        FlashBlade (Not Mandatory)
+        APIToken (Not Mandatory)
+        member_ids
+        member_names
+        policy_ids
+        policy_names
+        remote_ids
+        remote_names
+              
+.OUTPUTS
+        Arrays response       
+
+                
+.NOTES
+        Not Tested 
+        Minimum APIVersion = 1.9                                       
+#>
+[CmdletBinding()]
+Param(
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $FlashBlade,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $ApiToken,  
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $SkipCertificateCheck =$null,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $Member_Ids = $null,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $Member_Names = $null,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $Policy_Ids = $null,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $Policy_Names = $null,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $Remote_Ids = $null,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $Remote_Names = $null
+)
+if (!$FlashBlade) {
+        $myreturn = $(Get-InternalPfbJson);
+        $FlashBlade = $myreturn[0]
+        $ApiToken = $myreturn[1]
+        $ApiVers = $myreturn[2]
+        $SkipCertificateCheck = $myreturn[3]
+};
+
+$MinAPIVers = 1.9
+Test-APIVersion ($ApiVers, $MinAPIVers)
+
+if ($SkipCertificateCheck -eq 'true') {
+        $PSDefaultParameterValues=@("Invoke-RestMethod:SkipCertificateCheck",$true)
+        if ($DEBUG) {write-host "Skipping the Certificate Check $SkipCertificateCheck"}
+        $skipcert=$True
+}
+
+        $url = "/api/$ApiVers/file-system-replica-links/policies";
+        $link = "https://$FlashBlade$url";
+        $uri = [System.Web.HttpUtility]::ParseQueryString([String]::Empty)
+
+        if ($Member_Ids) {
+                $uri.Add('member_ids', $Member_Ids)
+        }
+        if ($Member_Namess) {
+                $uri.Add('member_names', $Member_Names)
+        }
+        if ($Polciy_Ids) {
+                $uri.Add('policy_ids', $Policy_Ids)
+        }
+        if ($Policy_Names) {
+                $uri.Add('policy_names', $Policy_Names)
+        }
+        if ($Remote_Ids) {
+                $uri.Add('remote_ids', $Remote_Ids)
+        }
+        if ($Remote_Names) {
+                $uri.Add('remote_names', $Remote_Names)
+        }
+
+        $request = [System.UriBuilder]$link
+        $request.Query = $uri.ToString()
+
+        $params = @{
+                SkipCertificateCheck = $skipcert
+                Method  = 'DELETE' 
+                Headers = @{ 'x-auth-token' = $(Get-InternalPfbAuthToken)} 
+                Uri = $request.Uri
+                Body = (ConvertTo-JSON $body) 
+                ContentType = 'application/json'       
+        } 
+        
+                if ($DEBUG) { write-host $request.Uri };
+                if ($DEBUG) { write-host @params };
+        
+                try {
+                        $obj = Invoke-RestMethod @params
+                        $Items = $obj.items;
+                        if ($DEBUG) {Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand)};
+                        if ($DEBUG) {Write-Host '---------------------------------------------------'};
+                        return $Items;
+                }
+                catch [System.Net.Http.HttpRequestException] {
+                        $Request = $_.Exception
+                        Write-host "Error trying to connect to $FlashBlade "
+                        Get-InternalHTTPError;
+                }
+                catch {
+                        $Request = $_.Exception
+                        Write-host "Catchall Exception caught: $Request"
+                        Get-InternalCatchAllError;
+                }
+                Finally { 
+                        $Token = $(Get-InternalPfbAuthToken);
+                        Get-InternalPfbAuthTokenLogout $Token;
+                }
+}
+
 function Get-PfbFilesystemSnapshot()
 {
 <#
@@ -5555,6 +7926,8 @@ function Get-PfbFilesystemSnapshot()
         This function lists array file system snapshots
 .EXAMPLE
         PS> Get-PfbFilesystemSnapshot
+        PS> Get-PfbFilesystemSnapshot -Transfer 1 -Ids '66093045-6666-ebac-b625-79ca00af772b'
+        PS> Get-PfbFilesystemSnapshot -Transfer 1
 .INPUTS
         FlashBlade (Not Mandatory)
         APIToken (Not Mandatory)
@@ -5566,6 +7939,7 @@ function Get-PfbFilesystemSnapshot()
         Start (Not Mandatory)
         Token (Not Mandatory)
         Names_or_Sources (Not Mandatory)
+        Transfer
         
 .OUTPUTS
         file systems snapshots response       
@@ -5597,7 +7971,8 @@ Param(
   [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $Names_or_Sources = $null,
   [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $Sort = $null,
   [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][int32] $Start = $null,
-  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $Token = $null
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $Token = $null,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][boolean] $Transfer 
 );
 if (!$FlashBlade) {
         $myreturn = $(Get-InternalPfbJson);
@@ -5613,7 +7988,11 @@ if ($SkipCertificateCheck -eq 'true') {
         $skipcert=$True
 }
 
-        $url = "/api/$ApiVers/file-system-snapshots";
+        if ($Transfer -eq 'true') {
+                $url = "/api/$ApiVers/file-system-snapshots/transfer";
+        } else {  
+                $url = "/api/$ApiVers/file-system-snapshots";
+        }
         $link = "https://$FlashBlade$url";
         $uri = [System.Web.HttpUtility]::ParseQueryString([String]::Empty)
 
@@ -5897,17 +8276,20 @@ function Remove-PfbFilesystemSnapshot()
 {
 <#
 .SYNOPSIS
-        Deletes A File System Snapshots
+        Deletes A File System Snapshots or transfer
 .DESCRIPTION
         Helper function
-        This function deletes a file system snapshots
+        This function deletes a file system snapshots or transfer
 .EXAMPLE
         PS> Remove-PfbFilesystemSnapshot -Names 'testsnap.1234'
+        PS> Remove-PfbFilesystemSnapshot -Transfer 1 -Ids '72093ea5-6888-e4a5-b32c-79ca0098ceaa'
 .INPUTS
         FlashBlade (Not Mandatory)
         APIToken (Not Mandatory)
         Names (Not Mandatory)
         IDs (Not Mandatory)
+        Remote_Names (Not Mandatory)
+        Remote_IDs (Not Mandatory)
         
 .OUTPUTS
         {}       
@@ -5915,6 +8297,7 @@ function Remove-PfbFilesystemSnapshot()
 .NOTES
         Snapshot needs to be destroyed via Update-PfbFilesystemSnapshot command first
         At some point I think I will add a force to destroy first, then delete in one command.
+        Remote_IDs and Remote_Names are only used when transfer is selected.
         Tested                        
 #>
 [CmdletBinding()]
@@ -5923,7 +8306,10 @@ Param(
   [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $ApiToken,
   [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $SkipCertificateCheck =$null,
   [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $Names = $null,
-  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $Ids = $null
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $Ids = $null,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $Remote_Names = $null,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $Remote_Ids = $null,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][Boolean] $Transfer
 );
 if (!$FlashBlade) {
         $myreturn = $(Get-InternalPfbJson);
@@ -5938,8 +8324,11 @@ if ($SkipCertificateCheck -eq 'true') {
         if ($DEBUG) {write-host "Skipping the Certificate Check $SkipCertificateCheck"}
         $skipcert=$True
 }
-
-        $url = "/api/$ApiVers/file-system-snapshots";
+        if ($Transfer -eq 'true') {
+                $url = "/api/$ApiVers/file-system-snapshots/transfer";
+        } else {
+                $url = "/api/$ApiVers/file-system-snapshots";
+        }
         $link = "https://$FlashBlade$url";
         $uri = [System.Web.HttpUtility]::ParseQueryString([String]::Empty)
 
@@ -6127,7 +8516,9 @@ if ($SkipCertificateCheck -eq 'true') {
                 }
 }
 
-function Get-PfbBlade()
+
+
+function Get-PfbBlades()
 {
 <#
 .SYNOPSIS
@@ -6685,6 +9076,321 @@ if ($SkipCertificateCheck -eq 'true') {
                 }
 }
 
+function Get-PfbKeytabs()
+{
+<#
+.SYNOPSIS
+        Lists or download the Kerberos Keytab File
+.DESCRIPTION
+        Helper function
+        This function lists FlashBlade Keytab file information
+.EXAMPLE
+        PS> Get-PfbKeytab
+        PS> Get-PfbKeytab -Download 1
+.INPUTS
+        FlashBlade (Not Mandatory)
+        APIToken (Not Mandatory)
+        Filter (Not Mandatory)
+        IDs (Not Mandatory)
+        Limit (Not Mandatory)
+        Names (Not Mandatory)
+        Sort (Not Mandatory)
+        Start (Not Mandatory)
+        Token (Not Mandatory)
+        Download (Not Mandatory)
+        KeyTabIds (Not Mandatory)
+        KeyTabNames (Not Mandatory)
+                        
+.OUTPUTS
+        KeyTab response       
+                
+.NOTES
+                                                
+#>
+[CmdletBinding()]
+Param(
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $FlashBlade,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $ApiToken,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $SkipCertificateCheck =$null,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $Filter =$null,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $Ids =$null,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][Int32] $Limit =$null,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $Names =$null,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $Sort =$null,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][int64] $Start ,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $Token =$null,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][boolean] $Download,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $KeyTabNames =$null,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $KeyTabIds =$null
+)
+if (!$FlashBlade) {
+        $myreturn = $(Get-InternalPfbJson);
+        $FlashBlade = $myreturn[0]
+        $ApiToken = $myreturn[1]
+        $ApiVers = $myreturn[2]
+        $SkipCertificateCheck = $myreturn[3]
+}
+
+if ($SkipCertificateCheck -eq 'true') {
+        $PSDefaultParameterValues=@("Invoke-RestMethod:SkipCertificateCheck",$true)
+        if ($DEBUG) {write-host "Skipping the Certificate Check $SkipCertificateCheck"}
+        $skipcert=$True
+}
+
+        $url = "/api/$ApiVers/keytabs";
+        $link = "https://$FlashBlade$url";
+        $uri = [System.Web.HttpUtility]::ParseQueryString([String]::Empty)
+        
+        if ($Filter) {
+                $uri.Add('filter', $Filter)
+        }
+        if ($Ids) {
+                $uri.Add('ids', $Ids)
+        }
+        if ($Limit) {
+                $uri.Add('limit', $Limit)
+        }
+        if ($Names) {
+                $uri.Add('names', $Names)
+        }
+        if ($Sort) {
+                $uri.Add('sort', $Sort)
+        }
+        if ($Start) {
+                $uri.Add('start', $Start)
+        }
+        if ($Token) {
+                $uri.Add('token', $Token)
+        }
+        if ($KayTabIds) {
+                $uri.Add('keytab_ids', $KeyTabIds)
+        }
+        if ($KeyTabNames) {
+                $uri.Add('keytab_names', $KeyTabNames)
+        }
+
+        $request = [System.UriBuilder]$link
+        $request.Query = $uri.ToString()
+
+        $params = @{
+                SkipCertificateCheck = $skipcert
+                Method  = 'GET' 
+                Headers = @{ 'x-auth-token' = $(Get-InternalPfbAuthToken)} 
+                Uri = $request.Uri
+                Body = (ConvertTo-JSON $body) 
+                ContentType = 'application/json'       
+        } 
+        
+                if ($DEBUG) { write-host $request.Uri };
+                if ($DEBUG) { write-host @params };
+        
+                try {
+                        $obj = Invoke-RestMethod @params
+                        $Items = $obj.items;
+                        if ($DEBUG) {Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand)};
+                        if ($DEBUG) {Write-Host '---------------------------------------------------'};
+                        return $Items;
+                }
+                catch [System.Net.Http.HttpRequestException] {
+                        $Request = $_.Exception
+                        Write-host "Error trying to connect to $FlashBlade "
+                        Get-InternalHTTPError;
+                }
+                catch {
+                        $Request = $_.Exception
+                        Write-host "Catchall Exception caught: $Request"
+                        Get-InternalCatchAllError;
+                }
+                Finally { 
+                        $Token = $(Get-InternalPfbAuthToken);
+                        Get-InternalPfbAuthTokenLogout $Token;
+                }
+}
+
+function Remove-PfbKeytabs()
+{
+<#
+.SYNOPSIS
+        Removes the Kerberos Keytab File
+.DESCRIPTION
+        Helper function
+        This function removes FlashBlade Keytab file information
+.EXAMPLE
+        PS> Remove-PfbKeytab -Names 'file1.1'
+.INPUTS
+        FlashBlade (Not Mandatory)
+        APIToken (Not Mandatory)
+        IDs (Not Mandatory)
+        Names (Not Mandatory)
+                        
+.OUTPUTS
+        KeyTab response       
+                
+.NOTES
+                                                
+#>
+[CmdletBinding()]
+Param(
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $FlashBlade,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $ApiToken,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $SkipCertificateCheck =$null,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $Ids =$null,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $Names =$null
+)
+if (!$FlashBlade) {
+        $myreturn = $(Get-InternalPfbJson);
+        $FlashBlade = $myreturn[0]
+        $ApiToken = $myreturn[1]
+        $ApiVers = $myreturn[2]
+        $SkipCertificateCheck = $myreturn[3]
+}
+
+if ($SkipCertificateCheck -eq 'true') {
+        $PSDefaultParameterValues=@("Invoke-RestMethod:SkipCertificateCheck",$true)
+        if ($DEBUG) {write-host "Skipping the Certificate Check $SkipCertificateCheck"}
+        $skipcert=$True
+}
+
+        $url = "/api/$ApiVers/keytabs";
+        $link = "https://$FlashBlade$url";
+        $uri = [System.Web.HttpUtility]::ParseQueryString([String]::Empty)
+        
+
+        if ($Ids) {
+                $uri.Add('ids', $Ids)
+        }
+        if ($Names) {
+                $uri.Add('names', $Names)
+        }
+ 
+        $request = [System.UriBuilder]$link
+        $request.Query = $uri.ToString()
+
+        $params = @{
+                SkipCertificateCheck = $skipcert
+                Method  = 'DELETE' 
+                Headers = @{ 'x-auth-token' = $(Get-InternalPfbAuthToken)} 
+                Uri = $request.Uri
+                Body = (ConvertTo-JSON $body) 
+                ContentType = 'application/json'       
+        } 
+        
+                if ($DEBUG) { write-host $request.Uri };
+                if ($DEBUG) { write-host @params };
+        
+                try {
+                        $obj = Invoke-RestMethod @params
+                        $Items = $obj.items;
+                        if ($DEBUG) {Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand)};
+                        if ($DEBUG) {Write-Host '---------------------------------------------------'};
+                        return $Items;
+                }
+                catch [System.Net.Http.HttpRequestException] {
+                        $Request = $_.Exception
+                        Write-host "Error trying to connect to $FlashBlade "
+                        Get-InternalHTTPError;
+                }
+                catch {
+                        $Request = $_.Exception
+                        Write-host "Catchall Exception caught: $Request"
+                        Get-InternalCatchAllError;
+                }
+                Finally { 
+                        $Token = $(Get-InternalPfbAuthToken);
+                        Get-InternalPfbAuthTokenLogout $Token;
+                }
+}
+
+function Add-NOPfbKeytabs()
+{
+<#
+.SYNOPSIS
+        Adds a Kerberos Keytab File
+.DESCRIPTION
+        Helper function
+        This function Adds a FlashBlade Keytab file 
+.EXAMPLE
+        PS> Add-PfbKeytab -KeytabFile 'file1.1'
+.INPUTS
+        FlashBlade (Not Mandatory)
+        APIToken (Not Mandatory)
+        KeytabFile (Not Mandatory)
+        NamePrefixes (Not Mandatory)
+                        
+.OUTPUTS
+        KeyTab response       
+                
+.NOTES
+                                                
+#>
+[CmdletBinding()]
+Param(
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $FlashBlade,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $ApiToken,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $SkipCertificateCheck =$null,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $KeytabFile =$null,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $NamePrefixes =$null
+)
+if (!$FlashBlade) {
+        $myreturn = $(Get-InternalPfbJson);
+        $FlashBlade = $myreturn[0]
+        $ApiToken = $myreturn[1]
+        $ApiVers = $myreturn[2]
+        $SkipCertificateCheck = $myreturn[3]
+}
+
+if ($SkipCertificateCheck -eq 'true') {
+        $PSDefaultParameterValues=@("Invoke-RestMethod:SkipCertificateCheck",$true)
+        if ($DEBUG) {write-host "Skipping the Certificate Check $SkipCertificateCheck"}
+        $skipcert=$True
+}
+
+        $url = "/api/$ApiVers/keytabs";
+        $link = "https://$FlashBlade$url";
+        $uri = [System.Web.HttpUtility]::ParseQueryString([String]::Empty)
+        
+
+        if ($NamePrefixes) {
+                $uri.Add('name_prefixes', $NamePrefixes)
+        }
+ 
+        $request = [System.UriBuilder]$link
+        $request.Query = $uri.ToString()
+
+        $params = @{
+                SkipCertificateCheck = $skipcert
+                Method  = 'POST' 
+                Headers = @{ 'x-auth-token' = $(Get-InternalPfbAuthToken)} 
+                Uri = $request.Uri
+                Body = (ConvertTo-JSON $body) 
+                ContentType = 'application/json'       
+        } 
+        
+                if ($DEBUG) { write-host $request.Uri };
+                if ($DEBUG) { write-host @params };
+        
+                try {
+                        $obj = Invoke-RestMethod @params
+                        $Items = $obj.items;
+                        if ($DEBUG) {Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand)};
+                        if ($DEBUG) {Write-Host '---------------------------------------------------'};
+                        return $Items;
+                }
+                catch [System.Net.Http.HttpRequestException] {
+                        $Request = $_.Exception
+                        Write-host "Error trying to connect to $FlashBlade "
+                        Get-InternalHTTPError;
+                }
+                catch {
+                        $Request = $_.Exception
+                        Write-host "Catchall Exception caught: $Request"
+                        Get-InternalCatchAllError;
+                }
+                Finally { 
+                        $Token = $(Get-InternalPfbAuthToken);
+                        Get-InternalPfbAuthTokenLogout $Token;
+                }
+}
 function Get-NOPfbLogs()
 {
 <#
@@ -8005,6 +10711,521 @@ if ($InputFile) {
                                 $Token = $(Get-InternalPfbAuthToken);
                                 Get-InternalPfbAuthTokenLogout $Token;
                         }
+}
+
+function Get-PfbSnmpAgents()
+{
+<#
+.SYNOPSIS
+        Lists all SNMP agents informatioon
+.DESCRIPTION
+        Helper function
+        This function lists FlashBlade SNMP Information
+.EXAMPLE
+        PS> Get-PfbSnmpAgents
+.INPUTS
+        FlashBlade (Not Mandatory)
+        APIToken (Not Mandatory)
+        mib
+        filter
+        limit
+        sort
+        start
+        token
+                        
+.OUTPUTS
+        SNMP response       
+                
+.NOTES
+        Tested                                         
+#>
+[CmdletBinding()]
+Param(
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $FlashBlade,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $ApiToken,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $SkipCertificateCheck =$null,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][boolean] $Mib ,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $Filter = $null,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][int32] $Limit,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $Sort = $null,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][int32] $Start,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $Token = $null
+)
+if (!$FlashBlade) {
+        $myreturn = $(Get-InternalPfbJson);
+        $FlashBlade = $myreturn[0]
+        $ApiToken = $myreturn[1]
+        $ApiVers = $myreturn[2]
+        $SkipCertificateCheck = $myreturn[3]
+}
+
+if ($SkipCertificateCheck -eq 'true') {
+        $PSDefaultParameterValues=@("Invoke-RestMethod:SkipCertificateCheck",$true)
+        if ($DEBUG) {write-host "Skipping the Certificate Check $SkipCertificateCheck"}
+        $skipcert=$True
+}
+        if ($Mib -eq 'true') {        
+                $url = "/api/$ApiVers/snmp-agents/mib";
+        } else {
+                $url = "/api/$ApiVers/snmp-agents";
+        }
+        $link = "https://$FlashBlade$url";
+        $uri = [System.Web.HttpUtility]::ParseQueryString([String]::Empty)
+
+        if ($Filter) {
+                $uri.Add('filter', $Filter)
+        }
+        if ($Sort) {
+                $uri.Add('sort' , $Sort)
+        }
+        if ($Start) {
+                $uri.Add('start' , $Start)
+        }
+        if ($Limit) {
+                $uri.Add('limit' , $Limit)
+        }
+        if ($Token) {
+                $uri.Add('token' , $Token)
+        }
+
+        $request = [System.UriBuilder]$link
+        $request.Query = $uri.ToString()
+
+        $params = @{
+                SkipCertificateCheck = $skipcert
+                Method  = 'GET' 
+                Headers = @{ 'x-auth-token' = $(Get-InternalPfbAuthToken)} 
+                Uri = $request.Uri
+                Body = (ConvertTo-JSON $body) 
+                ContentType = 'application/json'       
+        } 
+        
+                if ($DEBUG) { write-host $request.Uri };
+                if ($DEBUG) { write-host @params };
+        
+                try {
+                        $obj = Invoke-RestMethod @params
+                        $Items = $obj.items;
+                        if ($DEBUG) {Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand)};
+                        if ($DEBUG) {Write-Host '---------------------------------------------------'};
+                        return $Items;
+                }
+                catch [System.Net.Http.HttpRequestException] {
+                        $Request = $_.Exception
+                        Write-host "Error trying to connect to $FlashBlade "
+                        Get-InternalHTTPError;
+                }
+                catch {
+                        $Request = $_.Exception
+                        Write-host "Catchall Exception caught: $Request"
+                        Get-InternalCatchAllError;
+                }
+                Finally { 
+                        $Token = $(Get-InternalPfbAuthToken);
+                        Get-InternalPfbAuthTokenLogout $Token;
+                }
+}
+
+function Update-PfbSnmpAgents()
+{
+<#
+.SYNOPSIS
+        Updates the SNMP agents informatioon
+.DESCRIPTION
+        Helper function
+        This function updates FlashBlade SNMP Information
+.EXAMPLE
+        PS> Update-PfbSnmpAgents 
+        PS> Update-PfbSnmpAgents -InputFile 'filename.JSON'
+        PS> Update-PfbSnmpAgents -Attributes '{ "v2c":{"community": "secretagent"} }'
+.INPUTS
+        FlashBlade (Not Mandatory)
+        APIToken (Not Mandatory)
+                        
+.OUTPUTS
+        SNMP response       
+        name
+        id
+        engine_id
+        version
+        v2c
+                community
+        v3
+                auth_passphrase
+                auth_protocol
+                privacy_passphrase
+                privacy_protocol
+                user        
+.NOTES
+        Not Tested                                         
+#>
+[CmdletBinding()]
+Param(
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $FlashBlade,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $ApiToken,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $SkipCertificateCheck =$null,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $InputFile = $null,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $Attributes = $null
+
+)
+if (!$FlashBlade) {
+        $myreturn = $(Get-InternalPfbJson);
+        $FlashBlade = $myreturn[0]
+        $ApiToken = $myreturn[1]
+        $ApiVers = $myreturn[2]
+        $SkipCertificateCheck = $myreturn[3]
+}
+
+if ($SkipCertificateCheck -eq 'true') {
+        $PSDefaultParameterValues=@("Invoke-RestMethod:SkipCertificateCheck",$true)
+        if ($DEBUG) {write-host "Skipping the Certificate Check $SkipCertificateCheck"}
+        $skipcert=$True
+}
+
+if ($InputFile) { 
+        $body = Get-Content -Raw $InputFile | out-string | ConvertFrom-Json -AsHashtable;
+}        else {
+        $body = (ConvertFrom-Json $Attributes -AsHashtable);
+}
+                
+        $url = "/api/$ApiVers/snmp-agents";
+        $link = "https://$FlashBlade$url";
+        $uri = [System.Web.HttpUtility]::ParseQueryString([String]::Empty)
+
+        $request = [System.UriBuilder]$link
+        $request.Query = $uri.ToString()
+
+        $params = @{
+                SkipCertificateCheck = $skipcert
+                Method  = 'PATCH' 
+                Headers = @{ 'x-auth-token' = $(Get-InternalPfbAuthToken)} 
+                Uri = $request.Uri
+                Body = (ConvertTo-JSON $body) 
+                ContentType = 'application/json'       
+        } 
+        
+                if ($DEBUG) { write-host $request.Uri };
+                if ($DEBUG) { write-host @params };
+        
+                try {
+                        $obj = Invoke-RestMethod @params
+                        $Items = $obj.items;
+                        if ($DEBUG) {Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand)};
+                        if ($DEBUG) {Write-Host '---------------------------------------------------'};
+                        return $Items;
+                }
+                catch [System.Net.Http.HttpRequestException] {
+                        $Request = $_.Exception
+                        Write-host "Error trying to connect to $FlashBlade "
+                        Get-InternalHTTPError;
+                }
+                catch {
+                        $Request = $_.Exception
+                        Write-host "Catchall Exception caught: $Request"
+                        Get-InternalCatchAllError;
+                }
+                Finally { 
+                        $Token = $(Get-InternalPfbAuthToken);
+                        Get-InternalPfbAuthTokenLogout $Token;
+                }
+}
+
+function Get-PfbSnmpManagers()
+{
+<#
+.SYNOPSIS
+        Lists all SNMP Managers informatioon
+.DESCRIPTION
+        Helper function
+        This function lists FlashBlade SNMP Managers Information
+.EXAMPLE
+        PS> Get-PfbSnmpManagers
+.INPUTS
+        FlashBlade (Not Mandatory)
+        APIToken (Not Mandatory)
+        ids
+        names
+                        
+.OUTPUTS
+        SNMP response       
+                
+.NOTES
+        Tested                                         
+#>
+[CmdletBinding()]
+Param(
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $FlashBlade,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $ApiToken,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $SkipCertificateCheck =$null,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $Test =$null,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $Ids = $null,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $Names = $null
+)
+if (!$FlashBlade) {
+        $myreturn = $(Get-InternalPfbJson);
+        $FlashBlade = $myreturn[0]
+        $ApiToken = $myreturn[1]
+        $ApiVers = $myreturn[2]
+        $SkipCertificateCheck = $myreturn[3]
+}
+
+if ($SkipCertificateCheck -eq 'true') {
+        $PSDefaultParameterValues=@("Invoke-RestMethod:SkipCertificateCheck",$true)
+        if ($DEBUG) {write-host "Skipping the Certificate Check $SkipCertificateCheck"}
+        $skipcert=$True
+}
+
+        if ($Test -eq 'true') {
+                $url = "/api/$ApiVers/snmp-managers/test";
+        } else { 
+                $url = "/api/$ApiVers/snmp-managers";
+        }
+        $link = "https://$FlashBlade$url";
+        $uri = [System.Web.HttpUtility]::ParseQueryString([String]::Empty)
+
+        if ($Ids) {
+                $uri.Add('ids', $Ids)
+        }
+        if ($Names) {
+                $uri.Add('names' , $Names)
+        }
+
+        $request = [System.UriBuilder]$link
+        $request.Query = $uri.ToString()
+
+        $params = @{
+                SkipCertificateCheck = $skipcert
+                Method  = 'GET' 
+                Headers = @{ 'x-auth-token' = $(Get-InternalPfbAuthToken)} 
+                Uri = $request.Uri
+                Body = (ConvertTo-JSON $body) 
+                ContentType = 'application/json'       
+        } 
+        
+                if ($DEBUG) { write-host $request.Uri };
+                if ($DEBUG) { write-host @params };
+        
+                try {
+                        $obj = Invoke-RestMethod @params
+                        $Items = $obj.items;
+                        if ($DEBUG) {Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand)};
+                        if ($DEBUG) {Write-Host '---------------------------------------------------'};
+                        return $Items;
+                }
+                catch [System.Net.Http.HttpRequestException] {
+                        $Request = $_.Exception
+                        Write-host "Error trying to connect to $FlashBlade "
+                        Get-InternalHTTPError;
+                }
+                catch {
+                        $Request = $_.Exception
+                        Write-host "Catchall Exception caught: $Request"
+                        Get-InternalCatchAllError;
+                }
+                Finally { 
+                        $Token = $(Get-InternalPfbAuthToken);
+                        Get-InternalPfbAuthTokenLogout $Token;
+                }
+}
+
+function Add-PfbSnmpManagers()
+{
+<#
+.SYNOPSIS
+        Add an SNMP Manager
+.DESCRIPTION
+        Helper function
+        This function Adds a FlashBlade SNMP Manager 
+.EXAMPLE
+        PS> Add-PfbSnmpManagers --Attributes '{ "Keys":{"key":"value1", "Key":"value2"} }'
+        PS> Add-PfbSnmpManagers --InputFile '<filename>'
+.INPUTS
+        FlashBlade (Not Mandatory)
+        APIToken (Not Mandatory)
+        names
+                        
+.OUTPUTS
+        SNMP response       
+                
+.NOTES
+        Tested                                         
+#>
+[CmdletBinding()]
+Param(
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $FlashBlade,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $ApiToken,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $SkipCertificateCheck =$null,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $Names = $null,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $InputFile = $null,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $Attributes = $null
+)
+if (!$FlashBlade) {
+        $myreturn = $(Get-InternalPfbJson);
+        $FlashBlade = $myreturn[0]
+        $ApiToken = $myreturn[1]
+        $ApiVers = $myreturn[2]
+        $SkipCertificateCheck = $myreturn[3]
+}
+
+if ($SkipCertificateCheck -eq 'true') {
+        $PSDefaultParameterValues=@("Invoke-RestMethod:SkipCertificateCheck",$true)
+        if ($DEBUG) {write-host "Skipping the Certificate Check $SkipCertificateCheck"}
+        $skipcert=$True
+}
+
+if ($InputFile) { 
+        $body = Get-Content -Raw $InputFile | out-string | ConvertFrom-Json -AsHashtable;
+}        else {
+        $body = (ConvertFrom-Json $Attributes -AsHashtable);
+}
+
+        $url = "/api/$ApiVers/snmp-managers";
+        $link = "https://$FlashBlade$url";
+        $uri = [System.Web.HttpUtility]::ParseQueryString([String]::Empty)
+
+        if ($Names) {
+                $uri.Add('names' , $Names)
+        }
+
+        $request = [System.UriBuilder]$link
+        $request.Query = $uri.ToString()
+
+        $params = @{
+                SkipCertificateCheck = $skipcert
+                Method  = 'POST' 
+                Headers = @{ 'x-auth-token' = $(Get-InternalPfbAuthToken)} 
+                Uri = $request.Uri
+                Body = (ConvertTo-JSON $body) 
+                ContentType = 'application/json'       
+        } 
+        
+                if ($DEBUG) { write-host $request.Uri };
+                if ($DEBUG) { write-host @params };
+        
+                try {
+                        $obj = Invoke-RestMethod @params
+                        $Items = $obj.items;
+                        if ($DEBUG) {Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand)};
+                        if ($DEBUG) {Write-Host '---------------------------------------------------'};
+                        return $Items;
+                }
+                catch [System.Net.Http.HttpRequestException] {
+                        $Request = $_.Exception
+                        Write-host "Error trying to connect to $FlashBlade "
+                        Get-InternalHTTPError;
+                }
+                catch {
+                        $Request = $_.Exception
+                        Write-host "Catchall Exception caught: $Request"
+                        Get-InternalCatchAllError;
+                }
+                Finally { 
+                        $Token = $(Get-InternalPfbAuthToken);
+                        Get-InternalPfbAuthTokenLogout $Token;
+                }
+}
+
+function Update-PfbSnmpManagers()
+{
+<#
+.SYNOPSIS
+        Update an SNMP Manager
+.DESCRIPTION
+        Helper function
+        This function updates a FlashBlade SNMP Manager 
+.EXAMPLE
+        PS> Update-PfbSnmpManagers -Names 'name' --Attributes '{ "Keys":{"key":"value1", "Key":"value2"} }'
+        PS> Update-PfbSnmpManagers -Names 'alex' --Attributes '{ "v3":{"user":"frank"} }'
+        PS> Update-PfbSnmpManagers --InputFile '<filename>'
+.INPUTS
+        FlashBlade (Not Mandatory)
+        APIToken (Not Mandatory)
+        ids
+        names
+                        
+.OUTPUTS
+        SNMP response       
+                
+.NOTES
+        Tested                                         
+#>
+[CmdletBinding()]
+Param(
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $FlashBlade,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $ApiToken,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $SkipCertificateCheck =$null,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $Ids = $null,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $Names = $null,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $InputFile = $null,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $Attributes = $null
+)
+if (!$FlashBlade) {
+        $myreturn = $(Get-InternalPfbJson);
+        $FlashBlade = $myreturn[0]
+        $ApiToken = $myreturn[1]
+        $ApiVers = $myreturn[2]
+        $SkipCertificateCheck = $myreturn[3]
+}
+
+if ($SkipCertificateCheck -eq 'true') {
+        $PSDefaultParameterValues=@("Invoke-RestMethod:SkipCertificateCheck",$true)
+        if ($DEBUG) {write-host "Skipping the Certificate Check $SkipCertificateCheck"}
+        $skipcert=$True
+}
+
+if ($InputFile) { 
+        $body = Get-Content -Raw $InputFile | out-string | ConvertFrom-Json -AsHashtable;
+}        else {
+        $body = (ConvertFrom-Json $Attributes -AsHashtable);
+}
+
+        $url = "/api/$ApiVers/snmp-managers";
+        $link = "https://$FlashBlade$url";
+        $uri = [System.Web.HttpUtility]::ParseQueryString([String]::Empty)
+
+        if ($Ids) {
+                $uri.Add('ids' , $Ids)
+        }
+        if ($Names) {
+                $uri.Add('names' , $Names)
+        }
+
+        $request = [System.UriBuilder]$link
+        $request.Query = $uri.ToString()
+
+        $params = @{
+                SkipCertificateCheck = $skipcert
+                Method  = 'PATCH' 
+                Headers = @{ 'x-auth-token' = $(Get-InternalPfbAuthToken)} 
+                Uri = $request.Uri
+                Body = (ConvertTo-JSON $body) 
+                ContentType = 'application/json'       
+        } 
+        
+                if ($DEBUG) { write-host $request.Uri };
+                if ($DEBUG) { write-host @params };
+        
+                try {
+                        $obj = Invoke-RestMethod @params
+                        $Items = $obj.items;
+                        if ($DEBUG) {Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand)};
+                        if ($DEBUG) {Write-Host '---------------------------------------------------'};
+                        return $Items;
+                }
+                catch [System.Net.Http.HttpRequestException] {
+                        $Request = $_.Exception
+                        Write-host "Error trying to connect to $FlashBlade "
+                        Get-InternalHTTPError;
+                }
+                catch {
+                        $Request = $_.Exception
+                        Write-host "Catchall Exception caught: $Request"
+                        Get-InternalCatchAllError;
+                }
+                Finally { 
+                        $Token = $(Get-InternalPfbAuthToken);
+                        Get-InternalPfbAuthTokenLogout $Token;
+                }
 }
 
 function Get-PfbSubnet()
@@ -10024,6 +13245,170 @@ if ($SkipCertificateCheck -eq 'true') {
         if ($Limit) {
                 $uri.Add('limit' , $Limit)
         }
+        if ($Token) {
+                $uri.Add('token' , $Token)
+        } 
+        
+        $request = [System.UriBuilder]$link
+        $request.Query = $uri.ToString()
+
+        $params = @{
+                SkipCertificateCheck = $skipcert
+                Method  = 'GET' 
+                Headers = @{ 'x-auth-token' = $(Get-InternalPfbAuthToken)} 
+                Uri = $request.Uri
+                Body = (ConvertTo-JSON $body) 
+                ContentType = 'application/json'       
+        } 
+
+        if ($DEBUG) { write-host $request.Uri };
+        if ($DEBUG) { write-host @params };
+
+        try {
+                $obj = Invoke-RestMethod @params
+                $Items = $obj.items;
+                if ($DEBUG) {Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand)};
+                if ($DEBUG) {Write-Host '---------------------------------------------------'};
+                return $Items;
+        }
+        catch [System.Net.Http.HttpRequestException] {
+                $Request = $_.Exception
+                Write-host "Error trying to connect to $FlashBlade "
+                Get-InternalHTTPError;
+        }
+        catch {
+                $Request = $_.Exception
+                Write-host "Catchall Exception caught: $Request"
+                Get-InternalCatchAllError;
+        }
+        Finally { 
+                $Token = $(Get-InternalPfbAuthToken);
+                Get-InternalPfbAuthTokenLogout $Token;
+        }	
+}
+
+function Get-PfbPoliciesFileSystemReplicaLinks()
+{
+<#
+.SYNOPSIS
+        Lists all policies for filesystem replica links
+.DESCRIPTION
+        Helper function
+        Lists all policies for filesystem replica links
+.EXAMPLE
+        PS> Get-PfbPoliciesFileSystemReplicaLinks
+
+.INPUTS
+        FlashBlade (Not Mandatory)
+        APIToken (Not Mandatory)
+        Filter (Not Mandatory)
+        Limit (Not Mandatory)
+        LocalFSIDs
+        LocalFSNames
+        MemberIDs (Not Mandatory)
+        PolicyIDs (Not Mandatory)
+        PolicyNames (Not Mandatory)
+        RemoteIDs
+        RemoteNames
+        RemoteFSIDs
+        RemoteFSNames
+        Sort (Not Mandatory)
+        Start (Not Mandatory)
+        Token (Not Mandatory)
+
+        
+.OUTPUTS
+        Policies      
+        member
+                id
+                name
+                resource_type
+        policy
+                id
+                name
+                resource_type
+
+.NOTES
+        Tested                        
+#>
+[CmdletBinding()]
+Param(
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $FlashBlade,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $ApiToken,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $SkipCertificateCheck =$null,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $Filter = $null,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][int32] $Limit,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $LocalFSIDs = $null,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $LocalFSNames = $null,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $MemberIDs = $null,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $PolicyIDs = $null,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $PolicyNames = $null,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $RemoteIDs = $null,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $RemoteNames = $null,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $RemoteFSIDs = $null,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $RemoteFSNames = $null,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $Sort = $null,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][int32] $Start,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $Token = $null
+);
+if (!$FlashBlade) {
+        $myreturn = $(Get-InternalPfbJson);
+        $FlashBlade = $myreturn[0]
+        $ApiToken = $myreturn[1]
+        $ApiVers = $myreturn[2]
+        $SkipCertificateCheck = $myreturn[3]
+}
+        
+if ($SkipCertificateCheck -eq 'true') {
+        $PSDefaultParameterValues=@("Invoke-RestMethod:SkipCertificateCheck",$true)
+        if ($DEBUG) {write-host "Skipping the Certificate Check $SkipCertificateCheck"}
+        $skipcert=$True
+}
+
+        $url = "/api/$ApiVers/policies/file-system-replica-links";
+        $link = "https://$FlashBlade$url";
+        $uri = [System.Web.HttpUtility]::ParseQueryString([String]::Empty)
+
+        if ($Filter) {
+                $uri.Add('filter', $Filter)
+        }
+        if ($Limit) {
+                $uri.Add('limit' , $Limit)
+        }
+        if ($LocalFSIDs) {
+                $uri.Add('local_file_system_ids' , $LocalFSIDs)
+        }
+        if ($LocalFSNames) {
+                $uri.Add('local_file_system_names' , $LocalFSNames)
+        }
+        if ($MemberIDs) {
+                $uri.Add('member_ids', $MemberIDs)
+        }
+        if ($PolicyIDs) {
+                $uri.Add('policyids', $Policy_IDs)
+        }
+        if ($PolicyNames) {
+                $uri.Add('policy_names', $PolicyNames)
+        }
+        if ($RemoteIDs) {
+                $uri.Add('remote_ids', $RemoteIDs)
+        }
+        if ($RemoteNames) {
+                $uri.Add('remote_names', $RemoteNames)
+        }
+        if ($RemoteFSIDs) {
+                $uri.Add('remote_file_system_ids', $RemoteFSIDs)
+        }
+        if ($RemoteFSNames) {
+                $uri.Add('remote_file_system_names', $RemoteFSNames)
+        }
+        if ($Sort) {
+                $uri.Add('sort' , $Sort)
+        }
+        if ($Start) {
+                $uri.Add('start' , $Start)
+        }
+
         if ($Token) {
                 $uri.Add('token' , $Token)
         } 
@@ -12520,8 +15905,14 @@ $uri = [System.Web.HttpUtility]::ParseQueryString([String]::Empty)
         }
 }
 
+
+
+
+
+
 #==================================================================================================================
 
+New-Alias -Name Get-PfbArrayCPR -Value Get-PfbArrayConnectionsPerformanceReplication
 Export-ModuleMember -Function Get-Pfb* -Alias *
 Export-ModuleMember -Function Add-Pfb* -Alias *
 Export-ModuleMember -Function Update-Pfb* -Alias *
