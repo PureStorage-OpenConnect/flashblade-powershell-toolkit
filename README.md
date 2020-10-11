@@ -1,7 +1,7 @@
 # flashblade-powershell-toolkit
 Windows PowerShell Module for Pure Storage FlashBlade
 
-Client for Purity//FB REST API (1.0 - 1.9), developed by Pure Storage, Inc. Documentations can be found at purity-fb.readthedocs.io.
+Client for Purity//FB REST API (1.0 - 1.10), developed by Pure Storage, Inc. Documentations can be found at purity-fb.readthedocs.io.
 
 For more information, please visit http://www.purestorage.com
 
@@ -36,14 +36,17 @@ The control file holds :
 3. The version of the API that you wish to call.
 4. Whether you wish to skip validating your Certificates
 
+Note: From version 1.10 the APIVers paramater needs speechmarks in the JSON file, previously this was not required.
+
 [
 	{
 		"FlashBlade": 	"xxx.xxx.xxx.x",
 		"APIToken": 	"xxx",
-		"APIvers": 	1.8,
+		"APIvers": 	"1.10",
 		"SkipCertificateCheck": "True"
 	}
 ]
+
 
 Only API function not available at this point is ability to download logs. 
 Will work on that.
