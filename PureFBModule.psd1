@@ -12,13 +12,13 @@
 RootModule = 'PureFBModule.psm1'
 
 # Version number of this module.
-ModuleVersion = '2.1'
+ModuleVersion = '2.2'
 
 # Supported PSEditions
 # CompatiblePSEditions = @()
 
 # ID used to uniquely identify this module
-GUID = 'b3156bfa-0916-4804-b6ce-0c7508737745'
+GUID = '3b765d3d-5632-41a9-a477-b2daeca15a5e'
 
 # Author of this module
 Author = 'Alex Johnson'
