@@ -1,7 +1,7 @@
 # flashblade-powershell-toolkit
 Windows PowerShell Module for Pure Storage FlashBlade
 
-Client for Purity//FB REST API (1.0 - 1.10), developed by Pure Storage, Inc. Documentations can be found at purity-fb.readthedocs.io.
+Client for Purity//FB REST API (1.0 - 1.11), developed by Pure Storage, Inc. Documentations can be found at purity-fb.readthedocs.io.
 
 For more information, please visit http://www.purestorage.com
 
