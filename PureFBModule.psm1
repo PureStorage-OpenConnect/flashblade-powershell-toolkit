@@ -45,7 +45,7 @@ Cmdlets:
 
 #Requires -Version 6.0
 $AUTH_TOKEN = $null;
-$DEBUG = 0;
+$DEBUG = 1;
 $APIVers = 1.8;
 $JSON_FILE = 'FlashBlade.JSON';
  
@@ -13971,6 +13971,459 @@ if ($SkipCertificateCheck -eq 'true') {
                 }
 }
 
+function Get-PfbObjectStoreRC()
+{
+<#
+.SYNOPSIS
+        Lists all object store remote credentials
+.DESCRIPTION
+        Helper function
+        With no names parameter, lists all object store remote credentials. With the names parameter, lists the attributes for the specified object store accounts
+.EXAMPLE
+        PS> Get-PfbObjectStoreRC
+
+.INPUTS
+        FlashBlade (Not Mandatory)
+        APIToken (Not Mandatory)
+        Names (Not Mandatory)
+        IDs (Not Mandatory)
+        Filter (Not Mandatory)
+        Limit (Not Mandatory)
+        Sort (Not Mandatory)
+        Start (Not Mandatory)
+        Token (Not Mandatory)
+        
+.OUTPUTS
+        Object Store Credentials       
+        name
+        user
+                name
+                id
+                resource_type
+        created
+        enabled
+        secret_access_key
+
+.NOTES
+        Tested                        
+#>
+[CmdletBinding()]
+Param(
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $FlashBlade,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $ApiToken,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $SkipCertificateCheck =$null,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $Filter = $null,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $Ids = $null,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][int32] $Limit ,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $Names = $null,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $Sort = $null,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][int32] $Start ,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $Token = $null
+);
+if (!$FlashBlade) {
+        $myreturn = $(Get-InternalPfbJson);
+        $FlashBlade = $myreturn[0]
+        $ApiToken = $myreturn[1]
+        $ApiVers = $myreturn[2]
+        $SkipCertificateCheck = $myreturn[3]
+}
+
+if ($SkipCertificateCheck -eq 'true') {
+        $PSDefaultParameterValues=@("Invoke-RestMethod:SkipCertificateCheck",$true)
+        if ($DEBUG) {write-host "Skipping the Certificate Check $SkipCertificateCheck"}
+        $skipcert=$True
+}
+
+if ($Limit -gt 5)  { $Limit = 5; 
+        write-host "Limit set to max of 5 due to API policy";}
+                
+        $url = "/api/$ApiVers/object-store-remote-credientials";
+        $link = "https://$FlashBlade$url";
+        $uri = [System.Web.HttpUtility]::ParseQueryString([String]::Empty)
+
+        if ($Names) {
+                $uri.Add('names', $Names)
+        }
+        if ($Ids) {
+                $uri.Add('ids', $Ids)
+        }
+        if ($Filter) {
+                $uri.Add('filter', $Filter)
+        }
+        if ($Sort) {
+                $uri.Add('sort' , $Sort)
+        }
+        if ($Start) {
+                $uri.Add('start' , $Start)
+        }
+        if ($Limit) {
+                $uri.Add('limit' , $Limit)
+        }
+        if ($Token) {
+                $uri.Add('token' , $Token)
+        } 
+
+        
+        $request = [System.UriBuilder]$link
+        $request.Query = $uri.ToString()
+
+        $params = @{
+                SkipCertificateCheck = $skipcert
+                Method  = 'GET' 
+                Headers = @{ 'x-auth-token' = $(Get-InternalPfbAuthToken)} 
+                Uri = $request.Uri
+                Body = (ConvertTo-JSON $body) 
+                ContentType = 'application/json'       
+        } 
+        
+                if ($DEBUG) { write-host $request.Uri };
+                if ($DEBUG) { write-host @params };
+        
+                try {
+                        $obj = Invoke-RestMethod @params
+                        $Items = $obj.items;
+                        if ($DEBUG) {Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand)};
+                        if ($DEBUG) {Write-Host '---------------------------------------------------'};
+                        return $Items;
+                }
+                catch [System.Net.Http.HttpRequestException] {
+                        $Request = $_.Exception
+                        Write-host "Error trying to connect to $FlashBlade "
+                        Get-InternalHTTPError;
+                }
+                catch {
+                        $Request = $_.Exception
+                        Write-host "Catchall Exception caught: $Request"
+                        Get-InternalCatchAllError;
+                }
+                Finally { 
+                        $Token = $(Get-InternalPfbAuthToken);
+                        Get-InternalPfbAuthTokenLogout $Token;
+                }	
+}
+
+function Add-PfbObjectStoreRC()
+{
+<#
+.SYNOPSIS
+        Adds Object Store Remote Credentials.
+.DESCRIPTION
+        Helper function 
+        This function adds remote credentials to a bucket
+        A comma seperate list of names can be supplied
+.EXAMPLE
+        PS> Add-PfbObjectStoreRC -Names 'account/username' -Attributes ' { "access_key_id": "BAEMICAELAZOEWAD" , "secret_access_key": "ABMONROEPGJCIG4e5be8FbF0c322C8221b+30888BEC8"} '
+.INPUTS
+        FlashBlade (Not Mandatory)
+        APIToken (Not Mandatory)
+        Names ( Mandatory)
+        Attributes (Mandatory)
+                
+.OUTPUTS
+        Object Store Accounts       
+        name
+        user
+                name
+                id
+                resource_type
+        created
+        enabled
+        secret_access_key
+
+                
+.NOTES
+        Tested                                
+#>
+[CmdletBinding()]
+Param(
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $FlashBlade,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $ApiToken,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $InputFile = $null,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $Attributes = $null,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $SkipCertificateCheck = $null,
+  [Parameter(Mandatory=$TRUE)][ValidateNotNullOrEmpty()][string] $Names = $null
+);
+if (!$FlashBlade) {
+        $myreturn = $(Get-InternalPfbJson);
+        $FlashBlade = $myreturn[0]
+        $ApiToken = $myreturn[1]
+        $ApiVers = $myreturn[2]
+        $SkipCertificateCheck = $myreturn[3]
+}
+
+if ($SkipCertificateCheck -eq 'true') {
+        $PSDefaultParameterValues=@("Invoke-RestMethod:SkipCertificateCheck",$true)
+        if ($DEBUG) {write-host "Skipping the Certificate Check $SkipCertificateCheck"}
+        $skipcert=$True
+}
+
+if ($InputFile) { 
+        $body = Get-Content -Raw $InputFile | out-string | ConvertFrom-Json -AsHashtable;
+}        else {
+        $body = (ConvertFrom-Json $Attributes -AsHashtable);
+}
+
+        $url = "/api/$ApiVers/object-store-remote-credentials";
+        $link = "https://$FlashBlade$url";
+        $uri = [System.Web.HttpUtility]::ParseQueryString([String]::Empty)
+        
+        if ($Names) {
+                $uri.Add('names', $Names)
+        }
+        
+        $request = [System.UriBuilder]$link
+        $request.Query = $uri.ToString()
+
+        $params = @{
+                SkipCertificateCheck = $skipcert
+                Method  = 'POST' 
+                Headers = @{ 'x-auth-token' = $(Get-InternalPfbAuthToken)} 
+                Uri = $request.Uri
+                Body = (ConvertTo-JSON $body) 
+                ContentType = 'application/json'       
+        } 
+        
+                if ($DEBUG) { write-host $request.Uri };
+                if ($DEBUG) { write-host @params };
+        
+                try {
+                        $obj = Invoke-RestMethod @params
+                        $Items = $obj.items;
+                        if ($DEBUG) {Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand)};
+                        if ($DEBUG) {Write-Host '---------------------------------------------------'};
+                        return $Items;
+                }
+                catch [System.Net.Http.HttpRequestException] {
+                        $Request = $_.Exception
+                        Write-host "Error trying to connect to $FlashBlade "
+                        Get-InternalHTTPError;
+                }
+                catch {
+                        $Request = $_.Exception
+                        Write-host "Catchall Exception caught: $Request"
+                        Get-InternalCatchAllError;
+                }
+                Finally { 
+                        $Token = $(Get-InternalPfbAuthToken);
+                        Get-InternalPfbAuthTokenLogout $Token;
+                }
+}
+
+function Update-PfbObjectStoreRC()
+{
+<#
+.SYNOPSIS
+        Adds Object Store Remote Credentials.
+.DESCRIPTION
+        Helper function 
+        This function adds remote credentials to a bucket
+        A comma seperate list of names can be supplied
+.EXAMPLE
+        PS> Update-PfbObjectStoreRC -Names 'account/username' -Attributes ' { "access_key_id": "BAEMICAELAZOEWAD" , "secret_access_key": "ABMONROEPGJCIG4e5be8FbF0c322C8221b+30888BEC8" } '
+        PS> Update-PfbObjectStoreRC -Names 'account/username' -Attributes ' { "name": "fb03/dag" \ } '
+.INPUTS
+        FlashBlade (Not Mandatory)
+        APIToken (Not Mandatory)
+        Names ( Mandatory)
+        IDs
+        Attributes (Mandatory)
+                
+.OUTPUTS
+        Object Store Accounts       
+        name
+        user
+                name
+                id
+                resource_type
+        created
+        enabled
+        secret_access_key
+
+                
+.NOTES
+        Tested                                
+#>
+[CmdletBinding()]
+Param(
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $FlashBlade,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $ApiToken,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $InputFile = $null,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $Attributes = $null,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $SkipCertificateCheck = $null,
+  [Parameter(Mandatory=$TRUE)][ValidateNotNullOrEmpty()][string] $IDs = $null,
+  [Parameter(Mandatory=$TRUE)][ValidateNotNullOrEmpty()][string] $Names = $null
+);
+if (!$FlashBlade) {
+        $myreturn = $(Get-InternalPfbJson);
+        $FlashBlade = $myreturn[0]
+        $ApiToken = $myreturn[1]
+        $ApiVers = $myreturn[2]
+        $SkipCertificateCheck = $myreturn[3]
+}
+
+if ($SkipCertificateCheck -eq 'true') {
+        $PSDefaultParameterValues=@("Invoke-RestMethod:SkipCertificateCheck",$true)
+        if ($DEBUG) {write-host "Skipping the Certificate Check $SkipCertificateCheck"}
+        $skipcert=$True
+}
+
+if ($InputFile) { 
+        $body = Get-Content -Raw $InputFile | out-string | ConvertFrom-Json -AsHashtable;
+}        else {
+        $body = (ConvertFrom-Json $Attributes -AsHashtable);
+}
+
+        $url = "/api/$ApiVers/object-store-remote-credentials";
+        $link = "https://$FlashBlade$url";
+        $uri = [System.Web.HttpUtility]::ParseQueryString([String]::Empty)
+        
+        if ($Names) {
+                $uri.Add('names', $Names)
+        }
+        if ($IDs) {
+                $uri.Add('ids', $IDs)
+        }
+
+        $request = [System.UriBuilder]$link
+        $request.Query = $uri.ToString()
+
+        $params = @{
+                SkipCertificateCheck = $skipcert
+                Method  = 'PATCH' 
+                Headers = @{ 'x-auth-token' = $(Get-InternalPfbAuthToken)} 
+                Uri = $request.Uri
+                Body = (ConvertTo-JSON $body) 
+                ContentType = 'application/json'       
+        } 
+        
+                if ($DEBUG) { write-host $request.Uri };
+                if ($DEBUG) { write-host @params };
+        
+                try {
+                        $obj = Invoke-RestMethod @params
+                        $Items = $obj.items;
+                        if ($DEBUG) {Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand)};
+                        if ($DEBUG) {Write-Host '---------------------------------------------------'};
+                        return $Items;
+                }
+                catch [System.Net.Http.HttpRequestException] {
+                        $Request = $_.Exception
+                        Write-host "Error trying to connect to $FlashBlade "
+                        Get-InternalHTTPError;
+                }
+                catch {
+                        $Request = $_.Exception
+                        Write-host "Catchall Exception caught: $Request"
+                        Get-InternalCatchAllError;
+                }
+                Finally { 
+                        $Token = $(Get-InternalPfbAuthToken);
+                        Get-InternalPfbAuthTokenLogout $Token;
+                }
+}
+
+function Remove-PfbObjectStoreRC()
+{
+<#
+.SYNOPSIS
+        Deletes Object Store Remote Credentials.
+.DESCRIPTION
+        Helper function 
+        This function deletes object remote credentials
+        A comma seperate list of names can be supplied
+.EXAMPLE
+        PS> Remove-PfbObjectStoreRC -Names 'account/username' '
+.INPUTS
+        FlashBlade (Not Mandatory)
+        APIToken (Not Mandatory)
+        Names ( Mandatory)
+        IDs
+                
+.OUTPUTS
+        Object Store Accounts       
+        name
+        user
+                name
+                id
+                resource_type
+        created
+        enabled
+        secret_access_key
+
+                
+.NOTES
+        Tested                                
+#>
+[CmdletBinding()]
+Param(
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $FlashBlade,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $ApiToken,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $SkipCertificateCheck = $null,
+  [Parameter(Mandatory=$TRUE)][ValidateNotNullOrEmpty()][string] $IDs = $null,
+  [Parameter(Mandatory=$TRUE)][ValidateNotNullOrEmpty()][string] $Names = $null
+);
+if (!$FlashBlade) {
+        $myreturn = $(Get-InternalPfbJson);
+        $FlashBlade = $myreturn[0]
+        $ApiToken = $myreturn[1]
+        $ApiVers = $myreturn[2]
+        $SkipCertificateCheck = $myreturn[3]
+}
+
+if ($SkipCertificateCheck -eq 'true') {
+        $PSDefaultParameterValues=@("Invoke-RestMethod:SkipCertificateCheck",$true)
+        if ($DEBUG) {write-host "Skipping the Certificate Check $SkipCertificateCheck"}
+        $skipcert=$True
+}
+
+        $url = "/api/$ApiVers/object-store-remote-credentials";
+        $link = "https://$FlashBlade$url";
+        $uri = [System.Web.HttpUtility]::ParseQueryString([String]::Empty)
+        
+        if ($Names) {
+                $uri.Add('names', $Names)
+        }
+        if ($IDs) {
+                $uri.Add('ids', $IDs)
+        }
+
+        $request = [System.UriBuilder]$link
+        $request.Query = $uri.ToString()
+
+        $params = @{
+                SkipCertificateCheck = $skipcert
+                Method  = 'DELETE' 
+                Headers = @{ 'x-auth-token' = $(Get-InternalPfbAuthToken)} 
+                Uri = $request.Uri
+                Body = (ConvertTo-JSON $body) 
+                ContentType = 'application/json'       
+        } 
+        
+                if ($DEBUG) { write-host $request.Uri };
+                if ($DEBUG) { write-host @params };
+        
+                try {
+                        $obj = Invoke-RestMethod @params
+                        $Items = $obj.items;
+                        if ($DEBUG) {Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand)};
+                        if ($DEBUG) {Write-Host '---------------------------------------------------'};
+                        return $Items;
+                }
+                catch [System.Net.Http.HttpRequestException] {
+                        $Request = $_.Exception
+                        Write-host "Error trying to connect to $FlashBlade "
+                        Get-InternalHTTPError;
+                }
+                catch {
+                        $Request = $_.Exception
+                        Write-host "Catchall Exception caught: $Request"
+                        Get-InternalCatchAllError;
+                }
+                Finally { 
+                        $Token = $(Get-InternalPfbAuthToken);
+                        Get-InternalPfbAuthTokenLogout $Token;
+                }
+}
 function Get-PfbPolicies()
 {
 <#
@@ -18010,6 +18463,294 @@ $uri = [System.Web.HttpUtility]::ParseQueryString([String]::Empty)
                 $Token = $(Get-InternalPfbAuthToken);
                 Get-InternalPfbAuthTokenLogout $Token;
         }	
+}
+
+function Get-PfbUsageGroups()
+{
+<#
+.SYNOPSIS
+        Lists all groups with a hard limit quota or any amount of space usage.
+.DESCRIPTION
+        Helper function
+        Lists all groups with a hard limit quota or any amount of space usage.
+.EXAMPLE
+        PS> Get-PfbUsageGroup -FileSystemNames 'name of filesystem'
+
+.INPUTS
+        FlashBlade (Not Mandatory)
+        APIToken (Not Mandatory)
+        FileSystemNames (Mandatory)
+        Filter (Not Mandatory)
+        Limit (Not Mandatory)
+        Gids (Not Mandatory)
+        GroupNames (Not Mandatory)
+        Names (Not Mandatory)
+        Sort (Not Mandatory)
+        Start (Not Mandatory)
+        Token (Not Mandatory)
+
+        
+.OUTPUTS
+        file_system
+                id
+                name
+                resource_type
+        file_system_default_quota
+        group
+                id
+                name
+        id
+        name
+        quota
+        usage
+
+.NOTES
+        Tested                        
+#>
+[CmdletBinding()]
+Param(
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $FlashBlade,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $ApiToken,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $SkipCertificateCheck =$null,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $Filter = $null,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][int32] $Limit = $null,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $Names = $null,
+  [Parameter(Mandatory=$TRUE)][ValidateNotNullOrEmpty()][string] $FileSystemNames = $null,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $GroupNames = $null,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $GIDs = $null,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $Sort = $null,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][int32] $Start = $null,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $Token = $null
+);
+if (!$FlashBlade) {
+        $myreturn = $(Get-InternalPfbJson);
+        $FlashBlade = $myreturn[0]
+        $ApiToken = $myreturn[1]
+        $ApiVers = $myreturn[2]
+        $SkipCertificateCheck = $myreturn[3]
+}
+
+if ($SkipCertificateCheck -eq 'true') {
+        $PSDefaultParameterValues=@("Invoke-RestMethod:SkipCertificateCheck",$true)
+        if ($DEBUG) {write-host "Skipping the Certificate Check $SkipCertificateCheck"}
+        $skipcert=$True
+}
+                
+        $url = "/api/$ApiVers/usage/groups";
+        $headers = @{};
+        $headers.Add("x-auth-token", $(Get-InternalPfbAuthToken));
+
+        $link = "https://$FlashBlade$url";
+        $uri = [System.Web.HttpUtility]::ParseQueryString([String]::Empty)
+
+        if ($FileSystemNames) {
+                $uri.Add('file_system_names', $FileSystemNames)
+        }
+        if ($GIDs) {
+                $uri.Add('gids', $GIDs)
+        }
+        if ($Names) {
+                $uri.Add('names', $Names)
+        }
+        if ($GroupNames) {
+                $uri.Add('group_names', $GroupNames)
+        }
+        if ($Filter) {
+                $uri.Add('filter', $Filter)
+        }
+        if ($Sort) {
+                $uri.Add('sort' , $Sort)
+        }
+        if ($Start) {
+                $uri.Add('start' , $Start)
+        }
+        if ($Limit) {
+                $uri.Add('limit' , $Limit)
+        }
+        if ($Token) {
+                $uri.Add('token' , $Token)
+        } 
+        
+        $request = [System.UriBuilder]$link
+        $request.Query = $uri.ToString()
+      
+        $params = @{
+                SkipCertificateCheck = $skipcert
+                Method  = 'GET' 
+                Headers = @{ 'x-auth-token' = $(Get-InternalPfbAuthToken)} 
+                Uri = $request.Uri
+                Body = (ConvertTo-JSON $body) 
+                ContentType = 'application/json'       
+        } 
+
+        if ($DEBUG) { write-host $request.Uri };
+        if ($DEBUG) { write-host @params };
+
+        try {
+                $obj = Invoke-RestMethod @params
+                $Items = $obj.items;
+                if ($DEBUG) {Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand)};
+                if ($DEBUG) {Write-Host '---------------------------------------------------'};
+                return $Items;
+        }
+        catch [System.Net.Http.HttpRequestException] {
+                $Request = $_.Exception
+                Write-host "Error trying to connect to $FlashBlade "
+                Get-InternalHTTPError;
+        }
+        catch {
+                $Request = $_.Exception
+                Write-host "Catchall Exception caught: $Request"
+                Get-InternalCatchAllError;
+        }
+        Finally { 
+                $Token = $(Get-InternalPfbAuthToken);
+                Get-InternalPfbAuthTokenLogout $Token;
+        }		
+}
+
+function Get-PfbUsageUsers()
+{
+<#
+.SYNOPSIS
+        Lists all users with a hard limit quota or any amount of space usage.
+.DESCRIPTION
+        Helper function
+        Lists all users with a hard limit quota or any amount of space usage.
+.EXAMPLE
+        PS> Get-PfbUsageUsers -FileSystemNames 'name of filesystem'
+
+.INPUTS
+        FlashBlade (Not Mandatory)
+        APIToken (Not Mandatory)
+        FileSystemNames (Mandatory)
+        Filter (Not Mandatory)
+        Limit (Not Mandatory)
+        Uids (Not Mandatory)
+        UserNames (Not Mandatory)
+        Names (Not Mandatory)
+        Sort (Not Mandatory)
+        Start (Not Mandatory)
+        Token (Not Mandatory)
+
+        
+.OUTPUTS
+        file_system
+                id
+                name
+                resource_type
+        file_system_default_quota
+        group
+                id
+                name
+        id
+        name
+        quota
+        usage
+
+.NOTES
+        Tested                        
+#>
+[CmdletBinding()]
+Param(
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $FlashBlade,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $ApiToken,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $SkipCertificateCheck =$null,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $Filter = $null,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][int32] $Limit = $null,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $Names = $null,
+  [Parameter(Mandatory=$TRUE)][ValidateNotNullOrEmpty()][string] $FileSystemNames = $null,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $UserNames = $null,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $UIIDs = $null,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $Sort = $null,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][int32] $Start = $null,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $Token = $null
+);
+if (!$FlashBlade) {
+        $myreturn = $(Get-InternalPfbJson);
+        $FlashBlade = $myreturn[0]
+        $ApiToken = $myreturn[1]
+        $ApiVers = $myreturn[2]
+        $SkipCertificateCheck = $myreturn[3]
+}
+
+if ($SkipCertificateCheck -eq 'true') {
+        $PSDefaultParameterValues=@("Invoke-RestMethod:SkipCertificateCheck",$true)
+        if ($DEBUG) {write-host "Skipping the Certificate Check $SkipCertificateCheck"}
+        $skipcert=$True
+}
+                
+        $url = "/api/$ApiVers/usage/users";
+        $headers = @{};
+        $headers.Add("x-auth-token", $(Get-InternalPfbAuthToken));
+
+        $link = "https://$FlashBlade$url";
+        $uri = [System.Web.HttpUtility]::ParseQueryString([String]::Empty)
+
+        if ($FileSystemNames) {
+                $uri.Add('file_system_names', $FileSystemNames)
+        }
+        if ($GIDs) {
+                $uri.Add('gids', $GIDs)
+        }
+        if ($Names) {
+                $uri.Add('names', $Names)
+        }
+        if ($GroupNames) {
+                $uri.Add('group_names', $GroupNames)
+        }
+        if ($Filter) {
+                $uri.Add('filter', $Filter)
+        }
+        if ($Sort) {
+                $uri.Add('sort' , $Sort)
+        }
+        if ($Start) {
+                $uri.Add('start' , $Start)
+        }
+        if ($Limit) {
+                $uri.Add('limit' , $Limit)
+        }
+        if ($Token) {
+                $uri.Add('token' , $Token)
+        } 
+        
+        $request = [System.UriBuilder]$link
+        $request.Query = $uri.ToString()
+      
+        $params = @{
+                SkipCertificateCheck = $skipcert
+                Method  = 'GET' 
+                Headers = @{ 'x-auth-token' = $(Get-InternalPfbAuthToken)} 
+                Uri = $request.Uri
+                Body = (ConvertTo-JSON $body) 
+                ContentType = 'application/json'       
+        } 
+
+        if ($DEBUG) { write-host $request.Uri };
+        if ($DEBUG) { write-host @params };
+
+        try {
+                $obj = Invoke-RestMethod @params
+                $Items = $obj.items;
+                if ($DEBUG) {Write-Host ("Running function: {0} " -f $MyInvocation.MyCommand)};
+                if ($DEBUG) {Write-Host '---------------------------------------------------'};
+                return $Items;
+        }
+        catch [System.Net.Http.HttpRequestException] {
+                $Request = $_.Exception
+                Write-host "Error trying to connect to $FlashBlade "
+                Get-InternalHTTPError;
+        }
+        catch {
+                $Request = $_.Exception
+                Write-host "Catchall Exception caught: $Request"
+                Get-InternalCatchAllError;
+        }
+        Finally { 
+                $Token = $(Get-InternalPfbAuthToken);
+                Get-InternalPfbAuthTokenLogout $Token;
+        }		
 }
 
 function Get-PfbTargetsPerformanceReplication()
