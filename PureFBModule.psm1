@@ -3,8 +3,8 @@
 	Created by:   	aj@purestorage.com
 	Organization: 	Pure Storage, Inc.
 	Filename:     	PureFBModule.psd1
-	Copyright:	(c) 2020 Pure Storage, Inc.
-	Module Name: 	PureDBModule
+	Copyright:	(c) 2021 Pure Storage, Inc.
+	Module Name: 	PureFBModule
 	Description: 	PowerShell Script Module (.psm1)
 	-------------------------------------------------------------------------
 	Disclaimer
@@ -36,6 +36,8 @@ Cmdlets:
  FIX  Get-NOPfbLogs
  Update Help and add more examples.
  Testing, more testing.
+
+ Supports all versions to 1.11
 
  Author:
  aj@purestorage.com
@@ -6178,6 +6180,7 @@ function Get-PfbFilesystem()
         With no names parameter, lists all file systems. With the names parameter, lists the attributes for the specified file system or file systems.
 .EXAMPLE
         PS> Get-PfbFilesystem
+        PS> Get-PfbFilesystem -Destroyed 1
         PS> Get-PfbFilesystem -Filter 'hard_limit_enabled="true"'
         PS> Get-PfbFilesystem -Sort 'name' -Limit 10
 .INPUTS
@@ -6231,6 +6234,7 @@ Param(
   [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $FlashBlade,
   [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $ApiToken,
   [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $SkipCertificateCheck =$null,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][boolean] $Destroyed,
   [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $Filter = $null,
   [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $Ids = $null,
   [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][int32] $Limit = $null,
@@ -6277,6 +6281,9 @@ if ($SkipCertificateCheck -eq 'true') {
         }
         if ($Token) {
                 $uri.Add('token' , $Token)
+        }
+        if ($Destroyed) {
+                $uri.Add('destroyed' , $Destroyed)
         }
 
         $request = [System.UriBuilder]$link
@@ -6329,11 +6336,15 @@ function Add-PfbFilesystem()
 .EXAMPLE
         PS> Add-PfbFilesystem -InputFile 'name of JSON file'
         PS> Add-PfbFilesystem  -Attributes '{"name":"powershell","provisioned":"10000","nfs":{"v3_enabled":"true"} } '
+        Add-PfbFilesystem  -Attributes '{"name":"powershell","provisioned":"10000","nfs":{"v3_enabled":"true"} } ' -Overwrite 1
+        Add-PfbFilesystem  -Attributes '{"name":"powershell","provisioned":"10000","nfs":{"v3_enabled":"true"} } ' -Discard 1
 
 .INPUTS
         FlashBlade (Not Mandatory)
         APIToken (Not Mandatory)
         FileSystem (Not Mandatory)
+        Overwrite (Not Mandatory)
+        DiscardNonSnapShotData (Not Mandatory)
 
 .OUTPUTS
         file systems response       
@@ -6376,7 +6387,9 @@ Param(
   [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $ApiToken,
   [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $SkipCertificateCheck =$null,
   [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $Attributes,
-  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $InputFile = $null
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $InputFile = $null,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][boolean] $Overwrite = $null,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][boolean] $Discard = $null
 );
 if (!$FlashBlade) {
         $myreturn = $(Get-InternalPfbJson);
@@ -6402,6 +6415,12 @@ if ($InputFile) {
         $link = "https://$FlashBlade$url";
         $uri = [System.Web.HttpUtility]::ParseQueryString([String]::Empty)
 
+        if ($Overwrite) {
+                $uri.Add('overwrite', $Overwrite)
+        }
+        if ($Discard) {
+                $uri.Add('discard_non_snapshot_data', $Discard)
+        }
         # $body = @{ name = $Names };
 
         $request = [System.UriBuilder]$link
@@ -6457,6 +6476,7 @@ function Update-PfbFilesystem()
         PS> Update-PfbFilesystem -FileNames 'name of JSON file'
         PS> Update-PfbFilesystem -Attributes '{ "key":"value1", "Key":"value2" }'
         PS> Update-PfbFilesystem -Attributes '{ "Keys":{"key":"value1", "Key":"value2"} }'
+        PS> Update-PfbFilesystem -Names '<my user>' -Attributes '{ "multi_protocol": { "access_control_style": "mode-bits", "safeguard_acls": false} }'
         PS> Update-PfbFilesystem -Names 'name' -Attributes '{ "nfs":{"enabled":"true", "v3_enabled":"true"} } '
         PS> Update-PfbFilesystem -Names 'name' -Attributes '{"destroyed":"true" } '
         PS> Update-PfbFilesystem -Names 'powershell' -Attributes '{"nfs":{"v3_enabled":"false"},"destroyed":"true" } '
@@ -6471,6 +6491,9 @@ function Update-PfbFilesystem()
         IDs (Not Mandatory)
         IgnoreUsage (Not Mandatory)
         Names (Not Mandatory)
+        DeleteLinkOnEradication (Not Mandatory)
+        DiscardNonSnapshottedData (Not Mandatory)
+
 
 .OUTPUTS
         file systems response       
@@ -6516,7 +6539,9 @@ Param(
   [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $InputFile = $null,
   [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $Attributes = $null,
   [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $Ids = $null,
-  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][boolean] $IgnoreUsage
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][boolean] $IgnoreUsage,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][boolean] $DeleteLinkOnEradication,
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][boolean] $DeleteNonSnapshottedData
 );
 if (!$FlashBlade) {
         $myreturn = $(Get-InternalPfbJson);
@@ -6553,6 +6578,12 @@ if ($InputFile) {
         }
         if ($IgnoreUsage) {
                 $uri.Add('ignore_usage' , $IgnoreUsage)
+        }
+        if ($DeleteLinkOnEradication) {
+                $uri.Add('delete_link_on_eradication' , $DeleteLinkOnEradication)
+        }
+        if ($DeleteNonSnapshottedData) {
+                $uri.Add('delete_non_snapshotted_data' , $DeleteNonSnapshottedData)
         }
         #$body = ConvertFrom-Json $Attributes -AsHashtable;
 
@@ -17438,6 +17469,7 @@ function Update-PfbAdmin()
 .EXAMPLE
         PS> Update-PfbAdmin -CreateApiToken 1 -Names '<my user>'
         PS> Update-PfbAdmin -DeleteApiToken 1 -Names '<my user>'
+        PS> Update-PfbAdmin -Attributes { "public_key": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIB8Ht8Z3j6yDWPBHQtOp/ R9rjWvfMYo3MSA/KEXAMPLE" } '
 
 .INPUTS
         FlashBlade (Not Mandatory)
@@ -17450,6 +17482,8 @@ function Update-PfbAdmin()
         OldPassword (Not Mandatory)
         Password (Not Mandatory)
         DeleteApiToken (Not Mandatory)
+        Attributes (Not Mandatory)
+        InputFile (Not Mandatory)
 
         
 .OUTPUTS
