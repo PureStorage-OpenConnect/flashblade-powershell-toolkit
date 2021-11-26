@@ -6541,7 +6541,7 @@ Param(
   [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][string] $Ids = $null,
   [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][boolean] $IgnoreUsage,
   [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][boolean] $DeleteLinkOnEradication,
-  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][boolean] $DeleteNonSnapshottedData
+  [Parameter(Mandatory=$FALSE)][ValidateNotNullOrEmpty()][boolean] $DiscardNonSnapshottedData
 );
 if (!$FlashBlade) {
         $myreturn = $(Get-InternalPfbJson);
@@ -6582,8 +6582,8 @@ if ($InputFile) {
         if ($DeleteLinkOnEradication) {
                 $uri.Add('delete_link_on_eradication' , $DeleteLinkOnEradication)
         }
-        if ($DeleteNonSnapshottedData) {
-                $uri.Add('delete_non_snapshotted_data' , $DeleteNonSnapshottedData)
+        if ($DiscardNonSnapshottedData) {
+                $uri.Add('discard_non_snapshotted_data' , $DiscardNonSnapshottedData)
         }
         #$body = ConvertFrom-Json $Attributes -AsHashtable;
 
