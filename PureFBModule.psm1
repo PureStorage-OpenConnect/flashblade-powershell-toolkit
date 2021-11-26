@@ -6583,7 +6583,7 @@ if ($InputFile) {
                 $uri.Add('delete_link_on_eradication' , $DeleteLinkOnEradication)
         }
         if ($DiscardNonSnapshottedData) {
-                $uri.Add('delete_non_snapshotted_data' , $DiscardNonSnapshottedData)
+                $uri.Add('discard_non_snapshotted_data' , $DiscardNonSnapshottedData)
         }
         #$body = ConvertFrom-Json $Attributes -AsHashtable;
 
