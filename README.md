@@ -1,4 +1,7 @@
-# flashblade-powershell-toolkit
+# *** This module has been DEPRECATED ***
+# [The updated module is located here](https://github.com/PureStorage-OpenConnect/flashblade-powershell)
+
+## flashblade-powershell-toolkit
 Windows PowerShell Module for Pure Storage FlashBlade
 
 Client for Purity//FB REST API (1.0 - 1.11), developed by Pure Storage, Inc. Documentations can be found at purity-fb.readthedocs.io.
